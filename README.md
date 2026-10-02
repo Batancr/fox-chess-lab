@@ -12,8 +12,9 @@ The site lives in [`docs/`](docs/) and is served by GitHub Pages.
 
 ## Sign in with Lichess
 
-"Sign in with Lichess" uses Lichess's OAuth2 PKCE flow, which needs no app registration. The site asks for
-no special permissions: it reads the opening explorer and your username. Your sign-in token is kept only in your
+"Sign in with Lichess" uses Lichess's OAuth2 PKCE flow, which needs no app registration. The site asks only for
+permission to read your studies (`study:read`), so you can import them into your repertoire; it reads the opening
+explorer and your username, and can't change anything on your account. Your sign-in token is kept only in your
 browser, and signing out revokes it on Lichess.
 
 ## Opening explorer

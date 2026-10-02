@@ -444,6 +444,32 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .acct { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .acct-n { font-weight: 700; }
 
+/* ---------- strong & weak points, Lichess import ---------- */
+.lg.fweak { background: transparent; border: 3px solid var(--blunder); }
+.lg.fstrong { background: transparent; border: 3px solid var(--good); }
+.rtree g.n.f-weak rect { stroke: var(--blunder); stroke-width: 3; stroke-dasharray: none; }
+.rtree g.n.f-strong rect { stroke: var(--good); stroke-width: 3; stroke-dasharray: none; }
+.rtree g.n.sel rect { stroke: var(--focus); }
+.ins-note { font-size: 12.5px; margin: 0 0 8px; }
+.ins-g { margin-top: 10px; }
+.ins-h { font-weight: 700; font-size: 14px; }
+.ins-tip { margin: 2px 0 4px; font-size: 12.5px; color: var(--muted); }
+.insitem { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 8px 2px; text-align: left; cursor: pointer; color: var(--ink); font: inherit; }
+.insitem:hover { background: var(--sunken); }
+.insitem .gl2 { display: flex; flex-direction: column; min-width: 0; }
+.insitem .gl2 b { font: 600 13px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insitem .gl2 .why { font-size: 12.5px; line-height: 1.4; }
+.insitem .gl2 .why b { font: inherit; font-weight: 700; white-space: normal; }
+.iv { font: 700 14px var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.iv.bad { color: var(--blunder); } .iv.good { color: var(--good); } .iv.idea { color: var(--inacc); }
+.few { font-size: 11px; border: 1px solid var(--line); border-radius: 99px; padding: 0 6px; margin-left: 2px; white-space: nowrap; }
+.pos-sum { font-size: 13px; margin: 0 4px 8px; }
+.lilist { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin-bottom: 12px; }
+.lirow { align-items: center; margin-bottom: 4px; }
+.liitem { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); cursor: pointer; font-size: 14px; }
+.liitem .why { font-size: 12px; }
+.implist { margin: 6px 0 10px; padding-left: 18px; font-size: 14px; }
+
 </style>
 
 <div class="app">
@@ -581,10 +607,10 @@ textarea.inp { resize: vertical; font-size: 14px; }
         </div>
         <div class="dbar" id="repDbar"></div>
         <div class="legend">
-          <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Their reply you've prepared for</span><span><i class="lg gap"></i>Gap: popular reply with no answer yet</span><span class="why">Branch thickness = how often you'll meet the line</span>
+          <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Their reply you've prepared for</span><span><i class="lg gap"></i>Gap: popular reply with no answer yet</span><span><i class="lg fweak"></i>Weak point</span><span><i class="lg fstrong"></i>Strong point</span><span class="why">Branch thickness = how often you'll meet the line</span>
         </div>
         <div class="rep-tree" id="repTree"></div>
-        <div class="row rep-foot"><button class="btn" id="repImport">Import lines from PGN</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
+        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
       </div>
       <aside class="rep-side">
         <div class="card">
@@ -597,6 +623,10 @@ textarea.inp { resize: vertical; font-size: 14px; }
           <div class="moves-tbl" id="repMoves"></div>
           <textarea id="repNote" class="inp note" rows="2" placeholder="Your plans and ideas for this position…" hidden></textarea>
           <div class="row"><button class="btn" id="repRemove" hidden>Remove my move</button><button class="btn" id="repToStudy">Add line to a study</button><button class="btn" id="repToAnalysis">Open in Analysis</button></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Strong &amp; weak points</h2></div>
+          <div id="repInsights"></div>
         </div>
         <div class="card">
           <div class="card-h"><h2>Biggest gaps</h2><span class="meta">by how often you'd face them</span></div>
@@ -3201,13 +3231,19 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function b64url(bytes) { let s = ""; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
     function redirectUri() { return location.origin + location.pathname; }
+    const SCOPES = "study:read";                 // read your studies (including private ones) so they can be imported
+    function hasScope(sc) { return !!(X.auth && (X.auth.scope || "").split(" ").includes(sc)); }
+    async function lichess(path, opt) {
+      const headers = Object.assign({}, (opt && opt.headers) || {}, X.auth ? { Authorization: "Bearer " + X.auth.token } : {});
+      return fetch(LICHESS + path, Object.assign({}, opt || {}, { headers }));
+    }
     async function signIn() {
       if (!window.crypto || !crypto.subtle) { flash("This browser can't do a secure sign-in here (it needs https)"); return; }
       const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
       const challenge = b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))));
       const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
-      try { sessionStorage.setItem(K_OAUTH, JSON.stringify({ verifier, state, back: location.hash })); } catch (e) { flash("This browser blocks storage, so sign-in can't finish"); return; }
-      location.href = LICHESS + "/oauth?" + new URLSearchParams({ response_type: "code", client_id: CLIENT_ID, redirect_uri: redirectUri(), code_challenge_method: "S256", code_challenge: challenge, state });
+      try { sessionStorage.setItem(K_OAUTH, JSON.stringify({ verifier, state, back: location.hash, scope: SCOPES })); } catch (e) { flash("This browser blocks storage, so sign-in can't finish"); return; }
+      location.href = LICHESS + "/oauth?" + new URLSearchParams({ response_type: "code", client_id: CLIENT_ID, redirect_uri: redirectUri(), code_challenge_method: "S256", code_challenge: challenge, state, scope: SCOPES });
     }
     async function finishSignIn() {
       const q = new URLSearchParams(location.search), code = q.get("code"), err = q.get("error");
@@ -3224,7 +3260,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         if (!r.ok || !j.access_token) throw new Error(j.error_description || j.error || r.status);
         let user = "";
         try { const a = await fetch(LICHESS + "/api/account", { headers: { Authorization: "Bearer " + j.access_token } }); if (a.ok) user = (await a.json()).username || ""; } catch (e) { /* name is optional */ }
-        X.auth = { token: j.access_token, user, exp: j.expires_in ? Date.now() + j.expires_in * 1000 : 0 };
+        X.auth = { token: j.access_token, user, scope: saved.scope || "", exp: j.expires_in ? Date.now() + j.expires_in * 1000 : 0 };
         ls.set(K_AUTH, JSON.stringify(X.auth));
         X.fatal = null; X.failed.clear();
         flash(user ? "Signed in as " + user : "Signed in with Lichess");
@@ -3270,7 +3306,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function signInHtml() {
       if (X.auth) return "";
       return '<div class="tokbox"><div class="tokrow"><button class="btn sm primary" data-act="signin">Sign in with Lichess</button></div>' +
-        '<p class="why">You approve it on lichess.org. This site only reads the opening explorer and your username; it can\'t post or play for you. Your sign-in stays in this browser, and signing out revokes it.</p></div>';
+        '<p class="why">You approve it on lichess.org. This site reads the opening explorer, your username and your studies (so you can import them); it can\'t change anything, post or play for you. Your sign-in stays in this browser, and signing out revokes it.</p></div>';
     }
     function renderAcct() {
       const el = document.getElementById("acct");
@@ -3408,6 +3444,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 
     return {
       init, mode, sig, stamp, peek, get, clear, onChange, label, short, renderBars, inClaude: IN_CLAUDE,
+      signIn, hasScope, lichess, get user() { return X.auth ? X.auth.user : ""; },
       get settings() { return X.set; },
       setOn(v) { X.set.on = v; ls.set(K_SET, JSON.stringify(X.set)); changed(); },
       get state() { return X; },
@@ -3531,7 +3568,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const hit = R.cache.get(s.id);
       if (hit && hit.ck === ck) return hit;
       const maxPly = R.depth * 2;
-      if (fetch) Explorer.clear("rep");
+      if (fetch) { Explorer.clear("rep"); Explorer.get(START_FEN, { owner: "rep", prio: 2 }); }   // the start position sets the par score
       let pending = 0, failed = 0;
       const idx = new Map();                       // path -> opponent replies you have prepared
       for (const k in s.pos) {
@@ -3563,7 +3600,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           if (e && e.m) {
             const g2 = new Chess(fen), mv = g2.move(e.m, { sloppy: true });
             if (mv) {
-              const pk = Explorer.peek(fen), stats = pk && pk.moves ? pk.moves : [];
+              const pk = fetch ? Explorer.get(fen, { owner: "rep", prio: node.reach * 0.5 }) : Explorer.peek(fen), stats = pk && pk.moves ? pk.moves : [];
               const total = pk && pk.total ? pk.total : 0, st = stats.find(x => x.san === mv.san);
               onPath.add(key);
               expand(mk(node.path.concat(mv.san), g2.fen(), node, mv.san, "mine", node.reach, total && st ? st.n / total : null, st ? st.n : 0, mv));
@@ -3601,6 +3638,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       gaps.sort((a, b) => b.reach - a.reach);
       const prepared = Object.keys(s.pos).length;
       const out = { ck, root, nodes, gaps, leaves, coverage, prepared, pending, failed };
+      out.ins = insights(s, out);
       R.cache.set(s.id, out);
       return out;
     }
@@ -3631,6 +3669,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       renderTree();
       renderPanel();
       renderGaps();
+      renderInsights();
     }
     function renderSections() {
       const el = $("repSections");
@@ -3677,7 +3716,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           const sw = Math.max(1.5, Math.min(14, 2 + 18 * Math.sqrt(n.reach)));
           edges += '<path d="M' + x1 + "," + y1 + " C" + mx + "," + y1 + " " + mx + "," + y2 + " " + x2 + "," + y2 + '" class="e ' + (gap ? "gap" : n.kind) + '" stroke-width="' + sw.toFixed(1) + '"/>';
         }
-        let cls = "n " + n.kind + (n.needsMove ? " gap" : "") + (n.id === selId ? " sel" : "");
+        let cls = "n " + n.kind + (n.needsMove ? " gap" : "") + (n.id === selId ? " sel" : "") + (n.flag ? " f-" + n.flag : "");
         if (n.kind === "root" && n.needsMove) cls += " rootgap";
         const nm = n.parent ? shortName(n) : null;
         let extra = "";
@@ -3691,7 +3730,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         } else if (n.cut && n.kind !== "mine") {
           extra = '<text class="more" x="' + (n.x + w + 6) + '" y="' + (n.cy + 4) + '">›</text>';
         }
-        const title = lineText(n.path) + (n.share != null && n.kind === "opp" ? " · played in " + pct(n.share) + " of games here" : "") + (n.needsMove ? " · not prepared yet" : "") + (n.loading ? " · loading live numbers" : "") + (n.failed ? " · couldn't load: " + n.failed : "");
+        const title = lineText(n.path) + (n.share != null && n.kind === "opp" ? " · played in " + pct(n.share) + " of games here" : "") + (n.needsMove ? " · not prepared yet" : "") + (n.flag === "weak" ? " · weak point" : n.flag === "strong" ? " · strong point" : "") + (n.loading ? " · loading live numbers" : "") + (n.failed ? " · couldn't load: " + n.failed : "");
         pills += '<g class="' + cls + '" data-id="' + esc(n.id) + '" tabindex="0" role="button" aria-label="' + esc(title) + '"><title>' + esc(title) + "</title>" +
           (nm ? '<text class="oname" x="' + n.x + '" y="' + (n.cy - PH / 2 - 4) + '">' + esc(nm.length > 26 ? nm.slice(0, 25) + "…" : nm) + "</text>" : "") +
           '<rect x="' + n.x + '" y="' + (n.cy - PH / 2) + '" width="' + w + '" height="' + PH + '" rx="13"/>' +
@@ -3773,14 +3812,20 @@ textarea.inp { resize: vertical; font-size: 14px; }
           (live ? '<span class="mp">' + pct(share) + "</span>" + wdlBar(st.w, st.d, st.b)
                 : '<span class="mbar"><span style="width:' + Math.max(1, share * 100) + '%"></span></span><span class="mp">' + pct(share) + "</span>") + tag + "</button>";
       }
-      el.innerHTML = rows ? '<div class="mhead"><span>' + (mine ? "Popular choices" : "Their replies") + " · " + esc(Explorer.short()) + "</span><span>" + (denom ? denom.toLocaleString() + " games" : "") + "</span></div>" +
+      let sum = "";
+      if (live && !mine && data.total >= MIN_GAMES) {
+        const par = parScore(s.color), r = readPosition(s.color, data, par.v);
+        sum = '<p class="pos-sum">You score <b>' + pc(r.my) + "</b> here (par " + pc(par.v) + "). " +
+          (r.reps.length ? "<b>" + r.holds.length + " of " + r.reps.length + "</b> common replies keep the balance for them" + (r.slipShare >= 0.05 ? "; <b>" + pc(r.slipShare) + "</b> of opponents pick one that scores badly for them" : "") + "." : "") + "</p>";
+      }
+      el.innerHTML = rows ? sum + '<div class="mhead"><span>' + (mine ? "Popular choices" : "Their replies") + " · " + esc(Explorer.short()) + "</span><span>" + (denom ? denom.toLocaleString() + " games" : "") + "</span></div>" +
           (live && data.total ? '<div class="pos-wdl">' + wdlBar(data.w, data.d, data.b, true) + "</div>" : "") + rows
         : '<p class="why">' + (data.builtin && OData.failed ? "Opening statistics couldn't be loaded." : (Explorer.mode() === "builtin" ? "This position isn't in the built-in book." : "No games in the " + esc(Explorer.short()) + " database reach this position.")) + "</p>";
       el.querySelectorAll(".mrow").forEach(bt => bt.onclick = () => playFromPanel(bt.dataset.san));
     }
     function refreshData() {
       if (!R.loaded || !wired) return;
-      renderSections(); renderTree(); renderGaps(); renderPanelMoves();
+      renderSections(); renderTree(); renderGaps(); renderPanelMoves(); renderInsights();
     }
     function paintEngine(fen) {
       const bar = $("repEval"), info = $("repEngine");
@@ -3871,23 +3916,225 @@ textarea.inp { resize: vertical; font-size: 14px; }
         (close) => {
           $("imOk").onclick = () => {
             const games = $("imPgn").value.split(/\n\s*\n(?=\s*\[Event)/);
-            let added = 0, changed = 0, bad = 0;
+            const st = { added: 0, changed: 0, conflicts: 0, touched: new Set() };
+            let bad = 0;
             for (const txt of games) {
               const p = parsePGN(txt);
               bad += p.bad;
-              const walk = (node, path) => {
-                if (node.fen.split(" ")[1] === s.color && node.children.length) {
-                  const key = posKey(node.fen), mv = node.children[0].san, old = s.pos[key];
-                  if (!old) { s.pos[key] = { m: mv, p: path.join(" "), n: node.children[0].comment || "" }; added++; }
-                  else if (old.m !== mv && $("imReplace").checked) { old.m = mv; changed++; }
-                }
-                node.children.forEach(c => walk(c, path.concat(c.san)));
-              };
-              if (p.startFen === START_FEN) walk(p.root, []);
+              if (p.startFen === START_FEN) importTree(p, s.color, s, $("imReplace").checked, st);
             }
+            const added = st.added, changed = st.changed;
             if (!added && !changed) { $("imMsg").textContent = bad ? "Couldn't read the moves in that PGN." : "Nothing new to add: no moves for your side, or you already have them."; $("imMsg").className = "msg err"; return; }
             touch(s); close(); render();
             flash("Added " + added + " positions" + (changed ? ", changed " + changed : ""));
+          };
+        });
+    }
+
+
+    // ---- strong and weak points: results-based reading of the database at each position of your repertoire
+    const MIN_GAMES = 40;
+    function scorer(color) { return (w, d, b, n) => n ? ((color === "w" ? w : b) + d / 2) / n : null; }
+    function parScore(color) {
+      const st = Explorer.peek(START_FEN), sc = scorer(color);
+      if (st && !st.builtin && st.total) return { v: sc(st.w, st.d, st.b, st.total), real: true };
+      return { v: color === "w" ? 0.54 : 0.46, real: false };
+    }
+    // one opponent-to-move position: your score, their replies and how each scores for you
+    function readPosition(color, e, par) {
+      const sc = scorer(color);
+      const my = sc(e.w, e.d, e.b, e.total);
+      const reps = e.moves.filter(m => m.n >= Math.max(8, e.total * 0.03)).map(m => ({ san: m.san, n: m.n, sc: sc(m.w, m.d, m.b, m.n), share: m.n / e.total }));
+      const slips = reps.filter(r => r.sc >= par + 0.06).sort((a, b) => b.share - a.share);
+      const holds = reps.filter(r => r.sc <= par + 0.02).sort((a, b) => a.sc - b.sc);
+      return { my, reps, slips, holds, slipShare: slips.reduce((a, r) => a + r.share, 0) };
+    }
+    function insights(s, b) {
+      const out = { weak: [], strong: [], only: [], ideas: [], checked: 0, par: null, live: Explorer.mode() === "live" };
+      if (!out.live) return out;
+      const par = parScore(s.color); out.par = par;
+      const sc = scorer(s.color);
+      b.nodes.forEach(n => { n.flag = null; });
+      for (const n of b.nodes) {
+        const e = Explorer.peek(n.fen);
+        if (!e || e.builtin || e.failed || e.beyond || !e.total || e.total < MIN_GAMES) continue;
+        const theirTurn = n.fen.split(" ")[1] !== s.color;
+        if (theirTurn) {
+          out.checked++;
+          const r = readPosition(s.color, e, par.v);
+          if (!r.reps.length) continue;
+          const base = { node: n, path: n.path, reach: n.reach, games: e.total, my: r.my };
+          if (r.my <= par.v - 0.04) {
+            const best = r.reps.filter(x => x.n >= 20).sort((a, c) => a.sc - c.sc)[0] || null;
+            out.weak.push(Object.assign({ best, sev: n.reach * (par.v - r.my) }, base)); n.flag = "weak";
+          }
+          if (r.slipShare >= 0.25 && r.my >= par.v - 0.01) {
+            out.strong.push(Object.assign({ slips: r.slips, slipShare: r.slipShare, sev: n.reach * r.slipShare }, base)); if (!n.flag) n.flag = "strong";
+          }
+          if (r.reps.length >= 3 && r.holds.length === 1 && r.my >= par.v - 0.01) {
+            out.only.push(Object.assign({ hold: r.holds[0], others: r.reps.length - 1, sev: n.reach * (1 - r.holds[0].share) }, base)); if (!n.flag) n.flag = "strong";
+          }
+        } else {
+          const mine = s.pos[posKey(n.fen)];
+          if (!mine) continue;
+          const st = e.moves.find(m => m.san === mine.m);
+          const alts = e.moves.filter(m => m.san !== mine.m && m.n >= Math.max(30, e.total * 0.05)).map(m => ({ san: m.san, n: m.n, sc: sc(m.w, m.d, m.b, m.n) })).sort((a, c) => c.sc - a.sc);
+          if (!st || st.n < 20 || !alts.length) continue;
+          const myS = sc(st.w, st.d, st.b, st.n);
+          if (alts[0].sc >= myS + 0.05) out.ideas.push({ node: n, path: n.path, reach: n.reach, games: e.total, mine: { san: st.san, sc: myS, n: st.n }, alt: alts[0], sev: n.reach * (alts[0].sc - myS) });
+        }
+      }
+      ["weak", "strong", "only", "ideas"].forEach(k => out[k].sort((a, c) => c.sev - a.sev));
+      return out;
+    }
+    const pc = (x) => Math.round(x * 100) + "%";
+    const few = (n) => n < 100 ? ' <span class="few">few games</span>' : "";
+    function renderInsights() {
+      const el = $("repInsights");
+      if (!el) return;
+      const s = sec(), b = build(s), ins = b.ins;
+      if (!ins.live) {
+        el.innerHTML = '<p class="why">' + (Explorer.inClaude ? "Choose Masters or Lichess above to see where your preparation is strong or weak." : "Sign in with Lichess and choose Masters or Lichess above to see where your preparation is strong or weak.") + "</p>";
+        return;
+      }
+      const you = s.color === "w" ? "White" : "Black";
+      const head = '<p class="why ins-note">Based on who won the ' + esc(Explorer.short()) + " games, not on engine evaluation. Par: " + you + " scores " + pc(ins.par.v) + " from the start" + (ins.par.real ? "" : " (estimate)") + ". " + ins.checked + " positions with " + MIN_GAMES + "+ games checked" + (b.pending ? ", more still loading" : "") + ". Click one to look at it; switch on Engine to check it.</p>";
+      const group = (title, tip, items, fmt) => items.length ? '<div class="ins-g"><div class="ins-h">' + title + '</div><p class="ins-tip">' + tip + "</p>" + items.slice(0, 5).map(it => '<button class="insitem" data-path="' + esc(it.path.join(" ")) + '"><span class="iv ' + fmt.cls + '">' + fmt.val(it) + '</span><span class="gl2"><b>' + esc(lineText(it.path) || "Start") + '</b><span class="why">' + fmt.text(it) + "</span></span></button>").join("") + "</div>" : "";
+      let h = head;
+      h += group("Weak points", "Opponents score better than usual against your line here.", ins.weak, {
+        cls: "bad", val: it => pc(1 - it.my),
+        text: it => "They score " + pc(1 - it.my) + " here (" + it.games.toLocaleString() + " games)." + (it.best ? " Their best try: <b>" + esc(it.best.san) + "</b>, where you score " + pc(it.best.sc) + "." : "") + few(it.games) });
+      h += group("Strong points", "Many opponents choose a reply that scores badly for them.", ins.strong, {
+        cls: "good", val: it => pc(it.slipShare),
+        text: it => pc(it.slipShare) + " of opponents go wrong here. Most common slip: <b>" + esc(it.slips[0].san) + "</b> (" + pc(it.slips[0].share) + " of games), after which you score " + pc(it.slips[0].sc) + "." + few(it.games) });
+      h += group("Only one way to equalize", "Just one reply keeps the balance for your opponent; the rest score well for you.", ins.only, {
+        cls: "good", val: it => "1/" + (it.others + 1),
+        text: it => "Only <b>" + esc(it.hold.san) + "</b> holds (you score " + pc(it.hold.sc) + " against it); " + it.others + " other replies score well for you." + few(it.games) });
+      h += group("Ideas to look at", "Another move of yours has scored clearly better here. Worth checking with the engine before switching.", ins.ideas, {
+        cls: "idea", val: it => "+" + Math.round((it.alt.sc - it.mine.sc) * 100),
+        text: it => "You play <b>" + esc(it.mine.san) + "</b> (" + pc(it.mine.sc) + " in " + it.mine.n.toLocaleString() + " games); <b>" + esc(it.alt.san) + "</b> scores " + pc(it.alt.sc) + " in " + it.alt.n.toLocaleString() + "." + few(it.alt.n) });
+      if (!ins.weak.length && !ins.strong.length && !ins.only.length && !ins.ideas.length) h += '<p class="why">Nothing stands out yet. Prepare more positions, raise the depth, or check back when the numbers have loaded.</p>';
+      el.innerHTML = h;
+      el.querySelectorAll(".insitem").forEach(bt => bt.onclick = () => { R.sel = bt.dataset.path ? bt.dataset.path.split(" ") : []; R.scrollToSel = true; render(); });
+    }
+
+    // ---- import: one PGN tree into the repertoire, each of your moves sent to the section it belongs in
+    function routeFor(color, path, fixed) {
+      if (fixed) return fixed.color === color ? fixed : null;
+      let best = null;
+      for (const s of R.sections) {
+        if (s.color !== color || s.root.length > path.length) continue;
+        if (!s.root.every((m, i) => path[i] === m)) continue;
+        if (path.length > s.root.length && (s.skip || []).includes(path[s.root.length])) continue;
+        if (!best || s.root.length > best.root.length) best = s;
+      }
+      if (!best) {
+        best = { id: "s" + uid8(), name: "Imported as " + (color === "w" ? "White" : "Black"), color, root: [], skip: [], pos: {}, order: R.sections.length };
+        R.sections.push(best);
+      }
+      return best;
+    }
+    // colours: "w", "b" or "both"; fixed: one section for everything
+    function importTree(p, colours, fixed, replace, stats) {
+      const walk = (node, path) => {
+        const turn = node.fen.split(" ")[1];
+        if ((colours === "both" || colours === turn) && node.children.length) {
+          const s = routeFor(turn, path, fixed);
+          if (s) {
+            const key = posKey(node.fen), mv = node.children[0].san, old = s.pos[key];
+            const note = (node.children[0].comment || "").replace(/\[%[^\]]*\]/g, "").trim().slice(0, 280);
+            if (!old) { s.pos[key] = { m: mv, p: path.join(" "), n: note }; stats.added++; stats.touched.add(s); }
+            else if (old.m !== mv) {
+              if (replace) { old.m = mv; stats.changed++; stats.touched.add(s); }
+              else stats.conflicts++;
+            }
+          }
+        }
+        node.children.forEach(c => walk(c, path.concat(c.san)));
+      };
+      walk(p.root, []);
+    }
+    function splitGames(text) { return text.split(/\n\s*\n(?=\s*\[Event)/).filter(t => t.trim()); }
+
+    function lichessImportDialog() {
+      if (Explorer.inClaude) { importDialog(); return; }
+      if (!Explorer.state.auth || !Explorer.hasScope("study:read")) {
+        openDialog("Import from Lichess",
+          '<p>To read your Lichess studies, this site needs your permission to read studies. ' + (Explorer.state.auth ? "You signed in before that was added, so please sign in once more." : "Sign in with Lichess first.") + "</p>" +
+          '<p class="why">It can only read them; it can\'t change anything on your account.</p><div class="row"><button class="btn primary" id="liSign">Sign in with Lichess</button></div>',
+          () => { $("liSign").onclick = () => Explorer.signIn(); });
+        return;
+      }
+      const user = Explorer.user;
+      const secOpts = R.sections.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
+      openDialog("Import studies from Lichess",
+        '<p class="why">Pick the studies that hold your repertoire. Each chapter\'s board orientation on Lichess decides whether its moves count as your White or Black repertoire, and each line goes into the section it belongs in.</p>' +
+        '<div class="lilist" id="liList"><p class="why">Loading your studies…</p></div>' +
+        '<div class="field"><label for="liUrl">Or paste links to other studies (one per line)</label><textarea id="liUrl" class="inp" rows="2" spellcheck="false" placeholder="https://lichess.org/study/abcd1234"></textarea></div>' +
+        '<div class="field"><label for="liTo">Put the moves into</label><select id="liTo"><option value="">The matching sections (automatic)</option>' + secOpts + "</select></div>" +
+        '<label class="checks"><input type="checkbox" id="liReplace"> Where a study disagrees with a move I already have, use the study\'s move</label>' +
+        '<p class="msg" id="liMsg" role="status"></p><div class="row"><button class="btn primary" id="liOk">Import</button></div>',
+        (close) => {
+          let studies = [];
+          (async () => {
+            try {
+              const r = await Explorer.lichess("/api/study/by/" + encodeURIComponent(user));
+              if (!r.ok) throw new Error(r.status);
+              studies = (await r.text()).split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(x => x && x.id).sort((a, c) => (c.updatedAt || 0) - (a.updatedAt || 0));
+              $("liList").innerHTML = studies.length ? '<div class="row lirow"><button class="linkbtn" id="liAll">Select all</button><button class="linkbtn" id="liNone">Clear</button><span class="why">' + studies.length + (studies.length === 1 ? " study" : " studies") + "</span></div>" +
+                studies.map(st => '<label class="liitem"><input type="checkbox" value="' + esc(st.id) + '"><span>' + esc(st.name) + '</span><span class="why">' + (st.updatedAt ? new Date(st.updatedAt).toLocaleDateString() : "") + "</span></label>").join("")
+                : '<p class="why">No studies found on your account. You can paste links to studies below.</p>';
+              if (studies.length) {
+                $("liAll").onclick = () => $("liList").querySelectorAll("input").forEach(i => i.checked = true);
+                $("liNone").onclick = () => $("liList").querySelectorAll("input").forEach(i => i.checked = false);
+              }
+            } catch (e) { $("liList").innerHTML = '<p class="msg err">Couldn\'t load your studies from Lichess (' + esc(e.message || "network problem") + "). You can still paste study links below.</p>"; }
+          })();
+          $("liOk").onclick = async () => {
+            const ids = [...$("liList").querySelectorAll("input:checked")].map(i => i.value);
+            ($("liUrl").value.match(/study\/([A-Za-z0-9]{8})/g) || []).forEach(m => { const id = m.slice(6); if (!ids.includes(id)) ids.push(id); });
+            const msg = $("liMsg");
+            if (!ids.length) { msg.textContent = "Tick at least one study, or paste a study link."; msg.className = "msg err"; return; }
+            const fixed = $("liTo").value ? R.sections.find(x => x.id === $("liTo").value) : null;
+            const stats = { added: 0, changed: 0, conflicts: 0, touched: new Set(), chapters: 0, skipped: 0, failed: [] };
+            const before = R.sections.length;
+            $("liOk").disabled = true;
+            for (let i = 0; i < ids.length; i++) {
+              const nm = (studies.find(x => x.id === ids[i]) || {}).name || ids[i];
+              msg.className = "msg"; msg.textContent = "Reading " + nm + " (" + (i + 1) + " of " + ids.length + ")…";
+              try {
+                const r = await Explorer.lichess("/api/study/" + ids[i] + ".pgn?clocks=false&comments=true&variations=true&orientation=true");
+                if (!r.ok) throw new Error(r.status === 404 ? "not found or private" : String(r.status));
+                for (const txt of splitGames(await r.text())) {
+                  const p = parsePGN(txt);
+                  if (p.startFen !== START_FEN || !p.root.children.length) { stats.skipped++; continue; }
+                  stats.chapters++;
+                  const o = (p.headers.Orientation || "").toLowerCase();
+                  importTree(p, o === "black" ? "b" : o === "white" ? "w" : (fixed ? fixed.color : "both"), fixed, $("liReplace").checked, stats);
+                }
+              } catch (e) { stats.failed.push(nm + " (" + (e.message || "error") + ")"); }
+            }
+            $("liOk").disabled = false;
+            stats.touched.forEach(x => touch(x));
+            const made = R.sections.length - before;
+            if (!stats.added && !stats.changed) {
+              msg.className = "msg err";
+              msg.textContent = (stats.failed.length ? "Couldn't read: " + stats.failed.join(", ") + ". " : "") + (stats.chapters ? "Nothing new: you already have these moves" + (stats.conflicts ? " (" + stats.conflicts + " differ from yours; tick the box to use the study's)" : "") + "." : "No chapters with moves from the normal starting position.");
+              return;
+            }
+            close();
+            const first = [...stats.touched][0];
+            if (first && !stats.touched.has(sec())) { R.cur = first.id; R.sel = null; }
+            render();
+            openDialog("Import finished",
+              "<p>Added <b>" + stats.added + "</b> positions" + (stats.changed ? " and changed " + stats.changed : "") + " from " + stats.chapters + (stats.chapters === 1 ? " chapter" : " chapters") + ".</p><ul class=\"implist\">" +
+              [...stats.touched].map(x => "<li>" + esc(x.name) + ": " + Object.keys(x.pos).length + " positions</li>").join("") + "</ul>" +
+              (made ? '<p class="why">Made ' + made + " new " + (made === 1 ? "section" : "sections") + " for lines that didn't fit an existing one.</p>" : "") +
+              (stats.conflicts ? '<p class="why">' + stats.conflicts + " positions where the studies (or your existing repertoire) disagree on your move; the first one was kept. Tick the replace box to prefer the newly imported moves.</p>" : "") +
+              (stats.skipped ? '<p class="why">Skipped ' + stats.skipped + " chapters that start from a custom position or have no moves.</p>" : "") +
+              (stats.failed.length ? '<p class="msg err">Couldn\'t read: ' + esc(stats.failed.join(", ")) + "</p>" : "") +
+              '<div class="row"><button class="btn primary" id="imDone">Done</button></div>',
+              (c2) => { $("imDone").onclick = c2; });
           };
         });
     }
@@ -3902,6 +4149,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("repRename").onclick = renameDialog;
       $("repDelete").onclick = deleteDialog;
       $("repImport").onclick = importDialog;
+      $("repLichess").onclick = lichessImportDialog;
+      $("repLichess").hidden = Explorer.inClaude;
       $("repEngineBtn").onclick = () => { R.engine = !R.engine; if (!R.engine) { engineSeq++; board.setArrows([]); if (live) live.stop(); } renderPanel(); };
       $("repBack").onclick = () => { const s = sec(); if (R.sel && R.sel.length > s.root.length) { R.sel = R.sel.slice(0, -1); R.scrollToSel = true; render(); } };
       $("repRemove").onclick = () => {
