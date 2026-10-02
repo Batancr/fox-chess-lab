@@ -32,9 +32,16 @@ chapters disagree on your move you choose which to keep (the longest line by def
 **Export PGN** saves your White and Black repertoires as two PGN files, one chapter per section, ready to import into
 a Lichess study.
 
+## Example
+
+Open the site with `?demo` (the "See an example" link) to explore a ready-made repertoire and studies built from
+well-known opening theory. Nothing in example mode is saved, and your own work isn't touched.
+
 ## Your data
 
-Studies and repertoires are saved in your browser (localStorage) on this site. Clearing site data removes them.
+Everything you make saves automatically and privately in your browser (localStorage), on that device only; nothing is
+published. Clearing site data removes it, so use **Backup** (top right) to download a copy, or to move your work to
+another browser or device.
 
 ## Licences
 

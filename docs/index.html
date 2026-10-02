@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="Fox Chess Lab: chess analysis with Stockfish, an opening explorer, a visual repertoire map and studies."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%A6%8A%3C/text%3E%3C/svg%3E"><style>:root{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Fox Chess Lab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Silkscreen&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
 /* Layout: board column (eval bar + board + review graph) beside a side rail of engine, moves and loading tools; stacks on phones. */
 :root {
@@ -31,7 +31,7 @@
   --inacc: #B98F0C;
   --mistake: #D9731C;
   --blunder: #C8382E;
-  --font-display: "Silkscreen", "Courier New", monospace;
+  --font-display: var(--font-body);
   --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --radius: 10px;
@@ -64,7 +64,7 @@ button, select, textarea { font: inherit; color: inherit; }
 .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 16px; }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand .fox { font-size: 30px; line-height: 1; }
-h1 { font-family: var(--font-display); font-weight: 400; font-size: 26px; letter-spacing: .02em; margin: 0; line-height: 1; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -.01em; margin: 0; line-height: 1.1; }
 .tag { margin: 0; color: var(--muted); }
 
 /* layout */
@@ -123,7 +123,7 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 26px; letter
 /* cards */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
 .card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-.card-h h2 { font-family: var(--font-display); font-weight: 400; font-size: 14px; letter-spacing: .06em; margin: 0; }
+.card-h h2 { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: 0; margin: 0; }
 .meta { font: 12px/1.3 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* engine */
@@ -201,7 +201,7 @@ footer a { color: inherit; }
 .sheet-bg { position: fixed; inset: 0; z-index: 40; background: rgba(10, 14, 9, .6); overflow-y: auto; padding-inline: 16px; padding-block: calc(16px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)); }
 .sheet { background: var(--surface); color: var(--ink); border-radius: 14px; width: 100%; max-width: 1080px; margin: 0 auto; padding: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
 .sheet-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.sheet-h h2 { font-family: var(--font-display); font-weight: 400; font-size: 18px; margin: 0; letter-spacing: .03em; }
+.sheet-h h2 { font-family: var(--font-display); font-weight: 700; font-size: 18px; margin: 0; }
 .sheet-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
 .sheet-grid.solo { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
 @media (max-width: 860px) { .sheet-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -358,7 +358,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .chap.on { background: var(--accent); color: var(--accent-ink); }
 .ctype { font: 700 10px var(--font-mono); padding: 2px 5px; border-radius: 4px; border: 1px solid currentColor; opacity: .8; flex: none; }
 .stu-empty { padding: 26px; }
-.big-h { font-family: var(--font-display); font-weight: 400; font-size: 20px; margin: 0 0 8px; }
+.big-h { font-family: var(--font-display); font-weight: 700; font-size: 20px; margin: 0 0 8px; }
 .stu-empty p { max-width: 60ch; color: var(--muted); }
 .stu-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 360px); gap: 18px; align-items: start; }
 @media (max-width: 1180px) { .stu-main { grid-template-columns: minmax(0, 1fr); } }
@@ -487,6 +487,17 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .exrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
 .exrow > span { display: flex; flex-direction: column; }
 
+/* ---------- example mode, welcome, backup ---------- */
+.demo-bar, .welcome { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 10px 14px; border-radius: var(--radius); margin-bottom: 14px; font-size: 14px; }
+.demo-bar { background: var(--accent); color: var(--accent-ink); }
+.demo-bar .btn { background: var(--accent-ink); color: var(--accent); border-color: var(--accent-ink); text-decoration: none; }
+.welcome { border: 1px dashed var(--accent); background: var(--surface); }
+.welcome .btn, .demo-link { text-decoration: none; }
+.demo-link { font-size: 13px; color: var(--focus); text-decoration: underline; text-underline-offset: 2px; }
+.stu-demo a { color: var(--focus); }
+.bkrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.bkrow > span { display: flex; flex-direction: column; }
+
 </style>
 
 <div class="app">
@@ -498,9 +509,13 @@ textarea.inp { resize: vertical; font-size: 14px; }
       <button role="tab" data-tab="studies" aria-selected="false">Studies</button>
     </nav>
     <span class="save-state" id="saveState" role="status"></span>
+    <button class="linkbtn" id="backupBtn" hidden>Backup</button>
     <span class="acct" id="acct" hidden></span>
+    <a class="demo-link" id="demoLink" href="?demo#repertoire" hidden>See an example</a>
   </header>
 
+  <div class="demo-bar" id="demoBar" hidden><span><b>You're looking at an example</b> repertoire and studies, built from well-known opening theory. Try anything: nothing here is saved, and your own work isn't touched.</span><a class="btn sm primary" id="demoExit" href="./">Start my own</a></div>
+  <div class="welcome" id="repWelcome" hidden><span><b>New here?</b> See how the repertoire map, gap finder and studies work with a ready-made example before you build your own.</span><a class="btn sm" href="?demo#repertoire">See the example</a></div>
   <section id="tab-analysis">
   <main class="layout">
     <section class="board-col" aria-label="Board">
@@ -663,6 +678,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         <h2 class="big-h">Studies</h2>
         <p>Keep your opening lines with side lines and comments, or train calculation: set up a position from a screenshot, work out the line without the engine, then check it.</p>
         <div class="row"><button class="btn primary" id="stuStart1">Create a study</button><button class="btn" id="stuStart2">New calculation exercise</button></div>
+        <p class="why stu-demo" id="stuDemo" hidden>Not sure where to start? <a href="?demo#studies">Look at the example studies</a>, including two calculation exercises from famous games.</p>
       </div>
       <div class="stu-main" id="stuMain" hidden>
         <div class="stu-boardcol">
@@ -2556,6 +2572,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     mode: "local", db: null, uid: null, ready: null, pending: {}, writing: {}, timers: {}, listeners: [],
     init() {
       this.ready = (async () => {
+        if (DEMO) { this.mode = "demo"; this.emit("ready-demo"); return this.mode; }
         try {
           if (window.claude && typeof window.claude.use === "function") {
             const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
@@ -2577,6 +2594,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     async loadAll() {
       await this.ready;
       const out = [];
+      if (this.mode === "demo") return Demo.docs().map(d => Object.assign({ _id: (d.kind === "rep" ? "rep-" : "study-") + d.id }, d));
       if (this.mode === "db") {
         try {
           const snap = await this.col().get();
@@ -2590,11 +2608,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
     },
     // coalesce bursts (typing, several moves) into one write per pause, one write at a time per document
     saveSoon(id, getData, ms) {
+      if (this.mode === "demo" || DEMO) { this.emit("demo"); return; }
       clearTimeout(this.timers[id]);
       this.emit("dirty");
       this.timers[id] = setTimeout(() => { this.pending[id] = getData(); this.flush(id); }, ms == null ? 700 : ms);
     },
-    remove(id) { clearTimeout(this.timers[id]); this.pending[id] = null; this.flush(id); },
+    remove(id) { if (this.mode === "demo" || DEMO) return; clearTimeout(this.timers[id]); this.pending[id] = null; this.flush(id); },
     async flush(id) {
       if (this.writing[id]) return;
       this.writing[id] = true;
@@ -2634,13 +2653,17 @@ textarea.inp { resize: vertical; font-size: 14px; }
     const local = Store.mode !== "db";
     const msgs = {
       "ready-db": "Saving to your Claude account", "ready-local": "Saving in this browser only",
+      "ready-demo": "Example: changes aren't saved", demo: "Example: changes aren't saved",
       dirty: "Unsaved changes…", saving: "Saving…", saved: local ? "Saved in this browser" : "Saved to your account",
       full: "Storage is full. Delete an old study to save more.", error: "Couldn't save the last change. It will retry on your next edit.",
       "load-error": "Couldn't load your saved work. Reload the page to try again."
     };
     saveDot.textContent = msgs[state] || "";
     saveDot.dataset.state = state;
-    saveDot.title = local ? "Open this page signed in to claude.ai to save to your account and use it on other devices." : "Only you can see your repertoire and studies.";
+    saveDot.title = Store.mode === "demo" ? "You're looking at the example. Your own work is kept separately and isn't changed."
+      : !local ? "Only you can see your repertoire and studies."
+      : (window.claude && window.claude.use) ? "Open this page signed in to claude.ai to save to your account and use it on other devices."
+      : "Everything saves automatically, privately, in this browser on this device. Use Backup to keep a copy or move it to another device.";
   });
 
   // ---- PGN with side lines and comments
@@ -2928,6 +2951,48 @@ textarea.inp { resize: vertical; font-size: 14px; }
     if (first) setTimeout(() => first.focus(), 0);
     return close;
   }
+
+  // ==================================================================== EXAMPLE MODE (?demo)
+  // A ready-made repertoire and studies, built from well-known opening theory, for people trying the site.
+  // Nothing in example mode is saved, and the visitor's own saved work is left untouched.
+  const DEMO = /[?&]demo\b/.test(location.search);
+  const Demo = (function () {
+    const REP = [
+      { id: "white", name: "White: 1.e4", color: "w", root: [], skip: [], pgn: `1. e4 e5 (1... c5 2. Nf3 d6 (2... Nc6 3. Bb5 {Rossolimo: quick development, often taking on c6 to double Black's pawns.} g6 4. O-O Bg7 5. Re1) (2... e6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3) 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 (5... Nc6 6. Bg5) (5... g6 6. Be3 Bg7 7. f3) 6. Be3 {English Attack: f3, Qd2, castle long and push the kingside pawns.} e5 7. Nb3) (1... e6 2. d4 d5 3. Nc3 Nf6 (3... Bb4 4. e5 c5 5. a3) (3... dxe4 4. Nxe4) 4. Bg5) (1... c6 2. d4 d5 3. e5 {Advance: grab space and keep the light-squared bishop's diagonal in mind.} Bf5 4. Nf3 e6 5. Be2) (1... d5 2. exd5 Qxd5 3. Nc3 Qa5 (3... Qd6 4. d4) 4. d4 Nf6 5. Nf3) 2. Nf3 Nc6 (2... d6 3. d4) 3. Bb5 a6 (3... Nf6 4. O-O Nxe4 5. d4 {Against the Berlin: the endgame after 8.Qxd8+ is the classic main line.} Nd6 6. Bxc6 dxc6 7. dxe5 Nf5 8. Qxd8+ Kxd8) 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 (7... O-O 8. c3 d5 9. exd5 {The Marshall Attack: Black has given a pawn for a fast kingside attack. Defend carefully.} Nxd5 10. Nxe5 Nxe5 11. Rxe5 c6 12. d4) 8. c3 O-O 9. h3 {Stops ...Bg4 and prepares d4.} *` },
+      { id: "b-e4", name: "Black vs 1.e4", color: "b", root: ["e4"], skip: [], pgn: `1. e4 e5 2. Nf3 (2. Nc3 Nf6 3. f4 d5) (2. f4 d5 3. exd5 exf4) 2... Nc6 3. Bb5 (3. Bc4 Bc5 4. c3 Nf6 5. d3 d6 {A slow Italian: ...a6, ...Ba7 and castle.}) (3. d4 exd4 4. Nxd4 Nf6 5. Nxc6 bxc6 6. e5 Qe7 7. Qe2 Nd5) (3. Nc3 Nf6 4. d4 exd4 5. Nxd4 Bb4) 3... a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 O-O 8. c3 d5 {The Marshall Attack: a pawn for a lasting initiative.} 9. exd5 Nxd5 10. Nxe5 Nxe5 11. Rxe5 c6 *` },
+      { id: "b-d4", name: "Black vs 1.d4", color: "b", root: ["d4"], skip: [], pgn: `1. d4 d5 2. c4 (2. Nf3 Nf6 3. c4 e6) (2. Bf4 c5 3. e3 Nc6 4. Nf3 Nf6 {Against the London: hit d4 early with ...c5.}) 2... e6 3. Nc3 (3. Nf3 Nf6 4. g3 Be7 {Against the Catalan: castle, then take on c4 when it suits.} 5. Bg2 O-O 6. O-O dxc4) 3... Nf6 4. Bg5 (4. cxd5 exd5 5. Bg5 Be7 6. e3 c6 {Exchange QGD: expect White's minority attack with b4-b5.}) (4. Nf3 Be7 5. Bf4 O-O 6. e3 c5) 4... Be7 5. e3 O-O 6. Nf3 h6 7. Bh4 b6 {Tartakower: ...Bb7, and ...c5 when ready.} *` },
+      { id: "b-other", name: "Black vs other first moves", color: "b", root: [], skip: ["e4", "d4"], pgn: `1. c4 (1. Nf3 d5 2. g3 Nf6 3. Bg2 c6 4. O-O Bg4) (1. f4 d5 2. Nf3 g6) 1... e5 2. Nc3 Nf6 3. Nf3 (3. g3 d5 4. cxd5 Nxd5 5. Bg2 Nb6) 3... Nc6 4. g3 d5 5. cxd5 Nxd5 6. Bg2 Nb6 *` },
+    ];
+    const LINES = [
+      { name: "Closed Spanish main line", pgn: `1. e4 e5 2. Nf3 Nc6 3. Bb5 {The Spanish: pressure on the knight that guards e5.} a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 {Stops ...Bg4 and prepares d4.} Na5 (9... Bb7 10. d4 Re8 {Zaitsev.}) (9... Nb8 {Breyer: the knight reroutes to d7.} 10. d4 Nbd7) 10. Bc2 c5 11. d4 Qc7 {Chigorin.} *` },
+      { name: "Berlin endgame", pgn: `1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 5. d4 Nd6 6. Bxc6 dxc6 7. dxe5 Nf5 8. Qxd8+ Kxd8 {Queens are off. Black has the bishop pair; White has the healthier pawn majority on the kingside.} 9. Nc3 Ke8 10. h3 *` },
+    ];
+    function posOf(color, pgn) {
+      const p = parsePGN(pgn), pos = {};
+      (function walk(node, path) {
+        if (node.fen.split(" ")[1] === color && node.children.length) {
+          const key = posKey(node.fen);
+          if (!pos[key]) pos[key] = { m: node.children[0].san, p: path.join(" "), n: node.children[0].comment || "" };
+        }
+        node.children.forEach(c => walk(c, path.concat(c.san)));
+      })(p.root, []);
+      return pos;
+    }
+    function fenAt(sample, ply) { const p = parsePGN(SAMPLES[sample].moves); return fenAfter(mainline(p.root).slice(0, ply).map(n => n.san)); }
+    function docs() {
+      const out = REP.map((r, i) => ({ kind: "rep", id: r.id, name: r.name, color: r.color, root: r.root, skip: r.skip, pos: posOf(r.color, r.pgn), order: i }));
+      const now = Date.now();
+      out.push({ kind: "study", id: "demo-lines", name: "Example: Ruy Lopez ideas", created: now, updated: now,
+        chapters: LINES.map((l, i) => ({ id: "dl" + i, type: "line", name: l.name, fen: START_FEN, orient: "w", pgn: l.pgn, prompt: "", eval: false, arrows: false, attempts: [] })) });
+      out.push({ kind: "study", id: "demo-calc", name: "Example: calculation", created: now - 1, updated: now - 1,
+        chapters: [
+          { id: "dc0", type: "calc", name: "Morphy, Paris 1858", fen: fenAt("opera", 24), orient: "w", pgn: "", prompt: "White to play. Morphy found a forcing win here. Calculate the whole line before you move, then play it out and press Check my line.", eval: false, arrows: false, attempts: [] },
+          { id: "dc1", type: "calc", name: "Anderssen, Berlin 1852", fen: fenAt("evergreen", 38), orient: "w", pgn: "", prompt: "White to play. Black's queen has just taken on f3. Find the combination that ends the game.", eval: false, arrows: false, attempts: [] },
+        ] });
+      return out;
+    }
+    return { docs, REP, LINES };
+  })();
 
   // ==================================================================== LIVE DATABASE (Lichess Explorer connector)
   // Masters / Lichess numbers come through the viewer's "Lichess Explorer" connector. The Lichess token is kept
@@ -4891,7 +4956,52 @@ textarea.inp { resize: vertical; font-size: 14px; }
     const h = (location.hash || "").replace("#", "");
     if (h === "repertoire" || h === "studies") setTimeout(() => showTab(h), 0);
   })();
-  window.__studio = { Rep, Stu, Store, OData, Explorer, showTab, get tab() { return activeTab; } };
+  // ---- example mode, welcome prompts, backup
+  (function () {
+    const web = !Explorer.inClaude;
+    document.getElementById("demoBar").hidden = !DEMO;
+    document.getElementById("demoLink").hidden = DEMO || !web;
+    document.getElementById("backupBtn").hidden = DEMO || !web;
+    document.getElementById("stuDemo").hidden = DEMO || !web;
+    Store.loadAll().then(docs => {
+      const empty = !docs.some(d => (d.kind === "rep" && d.pos && Object.keys(d.pos).length) || (d.kind === "study" && d.chapters && d.chapters.length));
+      document.getElementById("repWelcome").hidden = DEMO || !web || !empty;
+    });
+    document.getElementById("backupBtn").onclick = () => {
+      openDialog("Backup and restore",
+        '<p class="why">Your repertoire and studies save automatically in this browser, on this device only, and nobody else can see them. A backup file lets you keep a copy, or move everything to another browser or device.</p>' +
+        '<div class="bkrow"><span><b>Download a backup</b><span class="why">Everything: repertoire sections and studies, as one file.</span></span><button class="btn primary" id="bkSave">Download</button></div>' +
+        '<div class="bkrow"><span><b>Restore from a backup</b><span class="why">Adds the backup\'s sections and studies; ones with the same name in both are replaced by the backup\'s copy.</span></span><button class="btn" id="bkLoad">Choose file</button></div>' +
+        '<input type="file" id="bkFile" accept=".json,application/json" hidden><p class="msg" id="bkMsg" role="status"></p>',
+        () => {
+          document.getElementById("bkSave").onclick = async () => {
+            const docs = (await Store.loadAll()).map(d => { const x = Object.assign({}, d); delete x._id; return Object.assign({ _id: d._id }, x); });
+            const blob = new Blob([JSON.stringify({ app: "fox-chess-lab", version: 1, saved: new Date().toISOString(), docs }, null, 1)], { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob); a.download = "fox-chess-lab-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+            document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+          };
+          document.getElementById("bkLoad").onclick = () => document.getElementById("bkFile").click();
+          document.getElementById("bkFile").onchange = async (e) => {
+            const f = e.target.files[0], m = document.getElementById("bkMsg");
+            if (!f) return;
+            try {
+              const o = JSON.parse(await f.text());
+              if (!o || o.app !== "fox-chess-lab" || !Array.isArray(o.docs)) throw new Error("not a Fox Chess Lab backup");
+              let n = 0;
+              for (const d of o.docs) {
+                if (!d || !d._id || !/^(rep|study)-/.test(d._id) || (d.kind !== "rep" && d.kind !== "study")) continue;
+                const data = Object.assign({}, d); delete data._id;
+                Store.saveSoon(d._id, () => data, 0); n++;
+              }
+              m.className = "msg ok"; m.textContent = "Restored " + n + " sections and studies. Reloading…";
+              setTimeout(() => location.reload(), 1200);
+            } catch (err) { m.className = "msg err"; m.textContent = "Couldn't read that file: " + (err.message || "unknown problem") + "."; }
+          };
+        });
+    };
+  })();
+  window.__studio = { Rep, Stu, Store, OData, Explorer, Demo, DEMO, showTab, get tab() { return activeTab; } };
 
   document.querySelectorAll("[data-boardtheme]").forEach(b => b.onclick = () => {
     setBoardTheme(b.dataset.boardtheme, true);
