@@ -2,6 +2,17 @@
  "version": 1,
  "items": [
   {
+   "title": "Canadian Closed Games",
+   "kind": "study",
+   "author": "Batancr",
+   "added": "2026-10-02",
+   "desc": "Game 1",
+   "tags": [],
+   "file": "community/canadian-closed-games.json",
+   "gh": "Batancr",
+   "issue": 3
+  },
+  {
    "title": "Calculation exercises",
    "kind": "study",
    "author": "Batancr",
