@@ -32,6 +32,22 @@ chapters disagree on your move you choose which to keep (the longest line by def
 **Export PGN** saves your White and Black repertoires as two PGN files, one chapter per section, ready to import into
 a Lichess study.
 
+## Sharing and the Community tab
+
+**Share** (above a study, or *Share section* under the repertoire tree) makes a link that carries the study or section
+inside it, after the `#`, so nothing is uploaded anywhere. Whoever opens the link can save their own copy.
+
+**Community** shows studies and repertoires approved by the site owner. Visitors submit from the Share dialog, which
+opens a pre-filled GitHub issue on this repository. To approve one, copy the share link (or the attached .txt file) from
+the issue and run, from this folder:
+
+```bash
+python3 tools/add_community.py "PASTE-THE-SHARE-LINK" --title "Title to show" --author "Name" --desc "One line about it"
+git add . && git commit -m "Add community item" && git push
+```
+
+To remove an item, delete its file in `docs/community/` and its entry in `docs/community/index.json`.
+
 ## Example
 
 Open the site with `?demo` (the "See an example" link) to explore a ready-made repertoire and studies built from

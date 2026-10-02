@@ -498,6 +498,25 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .bkrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
 .bkrow > span { display: flex; flex-direction: column; }
 
+/* ---------- sharing + community ---------- */
+.sh-pub { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.sh-pub .why { font-size: 13px; }
+#shLink { font: 12px/1.4 var(--font-mono); }
+.comm-head { margin-bottom: 16px; }
+.comm-head > .why { margin: 0 0 10px; }
+.comm-ctl { align-items: center; }
+.comm-ctl .inp { flex: 1 1 240px; width: auto; }
+.comm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.ccard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ccard h3 { margin: 0; font-size: 16px; }
+.ccard .why { margin: 0; font-size: 13.5px; flex: 1; }
+.cc-k { font-size: 11.5px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+.cc-f { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+@media (max-width: 560px) {
+  .tabs { width: 100%; overflow-x: auto; }
+  .tabs button { flex: 1 0 auto; padding: 7px 9px; font-size: 13.5px; }
+}
+
 </style>
 
 <div class="app">
@@ -507,6 +526,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       <button role="tab" data-tab="analysis" aria-selected="true">Analysis</button>
       <button role="tab" data-tab="repertoire" aria-selected="false">Repertoire</button>
       <button role="tab" data-tab="studies" aria-selected="false">Studies</button>
+      <button role="tab" data-tab="community" aria-selected="false" id="tabCommunity" hidden>Community</button>
     </nav>
     <span class="save-state" id="saveState" role="status"></span>
     <button class="linkbtn" id="backupBtn" hidden>Backup</button>
@@ -642,7 +662,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Their reply you've prepared for</span><span><i class="lg gap"></i>Gap: popular reply with no answer yet</span><span><i class="lg fweak"></i>Weak point</span><span><i class="lg fstrong"></i>Strong point</span><span class="why">Branch thickness = how often you'll meet the line</span>
         </div>
         <div class="rep-tree" id="repTree"></div>
-        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
+        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repShare" hidden>Share section</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
       </div>
       <aside class="rep-side">
         <div class="card">
@@ -686,6 +706,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
             <input id="stuStudyName" class="inp title-inp" aria-label="Study name">
             <input id="stuChapName" class="inp chap-inp" aria-label="Chapter name">
             <span class="meta" id="stuType"></span>
+            <button class="btn sm" id="stuShare" hidden>Share</button>
           </div>
           <div class="mb-wrap"><div class="evalbar" id="stuEval" hidden><div class="white"></div><span class="num top"></span><span class="num bottom"></span></div><div id="stuBoard"></div></div>
           <div class="controls">
@@ -721,6 +742,16 @@ textarea.inp { resize: vertical; font-size: 14px; }
       </div>
     </div>
     <input type="file" id="calcFile" accept="image/*" hidden>
+  </section>
+
+  <section id="tab-community" hidden>
+    <div class="card comm-head">
+      <div class="card-h"><h2>Community</h2><button class="btn sm primary" id="commPublish">Publish yours</button></div>
+      <p class="why">Studies and repertoires shared by players and approved by the site owner. Open one to look through it, and save your own copy to study or change.</p>
+      <div class="row comm-ctl"><input id="commSearch" class="inp" type="search" placeholder="Search by opening, name or author" autocomplete="off">
+        <div class="seg" role="group" aria-label="Show"><button data-ck="all" aria-pressed="true">All</button><button data-ck="study" aria-pressed="false">Studies</button><button data-ck="rep" aria-pressed="false">Repertoires</button></div></div>
+    </div>
+    <div class="comm-grid" id="commGrid"></div>
   </section>
 
   <footer>
@@ -2991,7 +3022,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         ] });
       return out;
     }
-    return { docs, REP, LINES };
+    return { docs, posOf, REP, LINES };
   })();
 
   // ==================================================================== LIVE DATABASE (Lichess Explorer connector)
@@ -4491,7 +4522,17 @@ textarea.inp { resize: vertical; font-size: 14px; }
       render();
     }
     function hide() { engineSeq++; }
-    return { init, show, hide, render, refreshData, sectionTree, repertoirePGN, guessColour, get state() { return R; }, build };
+    // a copy of a shared or community repertoire section, rebuilt from its PGN
+    function addSectionCopy(data) {
+      const color = data.color === "b" ? "b" : "w";
+      let name = data.name || (color === "w" ? "White" : "Black");
+      while (R.sections.some(x => x.name === name)) name = name.replace(/( \(\d+\))?$/, m => " (" + ((+((m.match(/\d+/) || [1])[0])) + 1) + ")");
+      const s2 = { id: "s" + uid8(), name, color, root: Array.isArray(data.root) ? data.root.slice() : [], skip: Array.isArray(data.skip) ? data.skip.slice() : [], pos: Demo.posOf(color, data.pgn || ""), order: R.sections.length };
+      R.sections.push(s2); R.cur = s2.id; R.sel = null;
+      touch(s2);
+      return s2;
+    }
+    return { init, show, hide, render, refreshData, addSectionCopy, get current() { return sec(); }, sectionTree, repertoirePGN, guessColour, get state() { return R; }, build };
   })();
 
   // ==================================================================== STUDIES
@@ -4912,23 +4953,198 @@ textarea.inp { resize: vertical; font-size: 14px; }
       render();
     }
     function hide() { engineSeq++; stopTimer(); }
-    return { init, show, hide, render, addLineChapter, addCalcChapter, get state() { return T; } };
+    // a copy of a shared or community study, with fresh ids and no attempt history
+    function addStudyCopy(data) {
+      const st = { id: "t" + uid8(), name: data.name || "Shared study", created: Date.now(), updated: Date.now(),
+        chapters: (data.chapters || []).map(c => ({ id: "c" + uid8(), type: c.type === "calc" ? "calc" : "line", name: c.name || "Chapter", fen: c.fen || START_FEN, orient: c.orient === "b" ? "b" : "w", pgn: c.pgn || "", prompt: c.prompt || "", eval: false, arrows: false, attempts: [] })) };
+      T.studies.unshift(st);
+      T.study = st.id;
+      if (st.chapters[0]) openChapter(st.chapters[0]);
+      saveStudy(st, 0);
+      return st;
+    }
+    return { init, show, hide, render, addLineChapter, addCalcChapter, addStudyCopy, get state() { return T; } };
+  })();
+
+  // ==================================================================== SHARE LINKS + COMMUNITY
+  // A share link carries the study or repertoire section inside the link itself (after the #), compressed.
+  // Nothing is uploaded: the part after # never reaches the web server. Whoever opens it can save their own copy.
+  const COMMUNITY_REPO = "Batancr/fox-chess-lab";          // where "Submit to Community" opens a GitHub issue
+  const Share = (function () {
+    function b64url(bytes) {
+      let s = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+    function unb64url(str) {
+      const s = atob(str.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((str.length + 3) % 4));
+      const out = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+      return out;
+    }
+    async function pack(obj) {
+      const raw = new TextEncoder().encode(JSON.stringify(obj));
+      if (window.CompressionStream) {
+        const z = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+        return "z" + b64url(z);
+      }
+      return "j" + b64url(raw);
+    }
+    async function unpack(str) {
+      const kind = str[0], bytes = unb64url(str.slice(1));
+      let raw = bytes;
+      if (kind === "z") {
+        if (!window.DecompressionStream) throw new Error("this browser can't open compressed links; try a current Chrome, Safari or Firefox");
+        raw = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+      } else if (kind !== "j") throw new Error("unknown link format");
+      return JSON.parse(new TextDecoder().decode(raw));
+    }
+    // what gets shared: no ids, no attempt history; repertoire sections travel as PGN (your notes become comments)
+    function payloadForStudy(st) {
+      return { app: "fox-chess-lab", v: 1, k: "study", name: st.name, chapters: st.chapters.map(c => ({ type: c.type, name: c.name, fen: c.fen, orient: c.orient, pgn: c.pgn || "", prompt: c.prompt || "" })) };
+    }
+    function payloadForSection(s) {
+      return { app: "fox-chess-lab", v: 1, k: "rep", name: s.name, color: s.color, root: s.root, skip: s.skip || [], pgn: treeToPGN(Rep.sectionTree(s), null) };
+    }
+    function valid(p) {
+      if (!p || p.app !== "fox-chess-lab") return false;
+      if (p.k === "study") return Array.isArray(p.chapters) && p.chapters.length > 0 && p.chapters.length <= 500;
+      if (p.k === "rep") return typeof p.pgn === "string" && (p.color === "w" || p.color === "b");
+      return false;
+    }
+    function summary(p) {
+      if (p.k === "study") {
+        const calc = p.chapters.filter(c => c.type === "calc").length;
+        return "Study · " + p.chapters.length + (p.chapters.length === 1 ? " chapter" : " chapters") + (calc ? " (" + calc + " calculation)" : "");
+      }
+      const n = Object.keys(Demo.posOf(p.color, p.pgn)).length;
+      return "Repertoire for " + (p.color === "w" ? "White" : "Black") + " · " + n + (n === 1 ? " position" : " positions");
+    }
+    function linkFor(code) { return location.origin + location.pathname + "#share=" + code; }
+
+    // ---- making a link
+    async function openShare(payload) {
+      const code = await pack(payload), url = linkFor(code);
+      const long = url.length > 8000, huge = url.length > 60000;
+      const signed = Explorer.state.auth && Explorer.state.auth.user;
+      openDialog("Share " + (payload.k === "study" ? "this study" : "this repertoire section"),
+        '<p class="why">Anyone you send this link to can open <b>' + esc(payload.name) + "</b> on this site and save their own copy. The link holds the whole " + (payload.k === "study" ? "study" : "section") + ", including your notes and comments, so only send it to people you want to see them. Changes you make later aren't included; send a new link.</p>" +
+        '<div class="field"><label for="shLink">Link (' + url.length.toLocaleString() + " characters)</label><textarea id=\"shLink\" class=\"inp\" rows=\"3\" readonly spellcheck=\"false\"></textarea></div>" +
+        (huge ? '<p class="msg err">This one is very long, and many apps will cut it off. Use Export PGN instead, or share a smaller part.</p>' : long ? '<p class="why">It\'s a long link. It works in a browser, but some chat apps may cut it off; if that happens, use Export PGN instead.</p>' : "") +
+        '<div class="row"><button class="btn primary" id="shCopy">Copy link</button></div>' +
+        '<div class="sh-pub"><b>Publish it to the Community page</b><p class="why">Sends it to the site owner for review on GitHub (you\'ll need a free GitHub account). Once approved, it appears on the Community tab for everyone. Whatever you submit becomes public.</p>' +
+        '<div class="field"><label for="shDesc">A line about it (optional)</label><input id="shDesc" class="inp" maxlength="200" placeholder="e.g. A low-maintenance Caro-Kann for club players"></div>' +
+        '<div class="field"><label for="shAuthor">Name to show</label><input id="shAuthor" class="inp" maxlength="40" value="' + esc(signed || "") + '" placeholder="Your name or Lichess username"></div>' +
+        '<div class="row"><button class="btn" id="shSubmit">Submit to Community</button></div><p class="msg" id="shMsg"></p></div>',
+        () => {
+          document.getElementById("shLink").value = url;
+          document.getElementById("shCopy").onclick = () => copyText(url, "Link");
+          document.getElementById("shSubmit").onclick = () => {
+            const desc = document.getElementById("shDesc").value.trim(), author = document.getElementById("shAuthor").value.trim() || "Anonymous";
+            const title = "Community submission: " + payload.name;
+            let body = "**Title:** " + payload.name + "\n**Type:** " + summary(payload) + "\n**Shown as by:** " + author + "\n**About it:** " + (desc || "(none)") + "\n\n";
+            const fits = url.length < 6000;
+            body += fits ? "**Share link:**\n" + url + "\n" : "**The share link was too long for an issue.** I've attached the file `" + fileName(payload) + "` that the site downloaded for me (drag it into this box).\n";
+            body += "\n_Submitted from Fox Chess Lab. By submitting, I agree that this can be shown publicly on the site._";
+            if (!fits) downloadText(fileName(payload), JSON.stringify(payload));
+            window.open("https://github.com/" + COMMUNITY_REPO + "/issues/new?" + new URLSearchParams({ title, body }), "_blank", "noopener");
+            const m = document.getElementById("shMsg");
+            m.className = "msg ok"; m.textContent = fits ? "A GitHub page opened with your submission filled in. Press Submit there." : "A GitHub page opened. Drag the downloaded file into it, then press Submit.";
+          };
+        });
+    }
+    function fileName(p) { return "fox-" + (p.name || "shared").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + ".txt"; }
+    function downloadText(name, text) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+      a.download = name; document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
+
+    // ---- opening a link, or saving a community item
+    function preview(p) {
+      if (p.k === "study") return '<ul class="implist">' + p.chapters.slice(0, 12).map(c => "<li>" + (c.type === "calc" ? "Calculation: " : "") + esc(c.name) + "</li>").join("") + (p.chapters.length > 12 ? "<li>and " + (p.chapters.length - 12) + " more</li>" : "") + "</ul>";
+      const ml = mainline(parsePGN(p.pgn).root).slice(0, 10).map(n => n.san);
+      return '<p class="rep-pos">' + esc(lineText(ml)) + (ml.length === 10 ? " …" : "") + "</p>";
+    }
+    function saveCopy(p) {
+      if (DEMO) { flash("This is the example; open the site normally to save copies"); return; }
+      if (p.k === "study") { Stu.addStudyCopy(p); showTab("studies"); flash("Saved a copy of " + p.name + " to your studies"); }
+      else { const s = Rep.addSectionCopy(p); showTab("repertoire"); flash("Saved " + s.name + " to your repertoire"); }
+    }
+    function offer(p, how) {
+      openDialog((how === "link" ? "Shared with you: " : "") + p.name,
+        '<p class="why">' + esc(summary(p)) + (p.author ? " · by " + esc(p.author) : "") + "</p>" + (p.desc ? "<p>" + esc(p.desc) + "</p>" : "") + preview(p) +
+        '<p class="why">Saving makes your own private copy, saved in this browser. You can change it freely; the original isn\'t affected.</p>' +
+        '<div class="row"><button class="btn primary" id="ofSave">Save a copy</button></div>',
+        (close) => { document.getElementById("ofSave").onclick = () => { close(); saveCopy(p); }; });
+    }
+    async function checkHash() {
+      const h = location.hash || "";
+      if (!h.startsWith("#share=")) return false;
+      history.replaceState(null, "", location.pathname + location.search);
+      try {
+        const p = await unpack(h.slice(7));
+        if (!valid(p)) throw new Error("this link isn't a Fox Chess Lab study or repertoire");
+        offer(p, "link");
+      } catch (e) { openDialog("Couldn't open that link", '<p>' + esc(e.message || "The link looks damaged or cut off.") + '</p><p class="why">If it came through a chat app, it may have been shortened. Ask for it again, or for an exported PGN instead.</p>'); }
+      return true;
+    }
+
+    // ---- the Community tab: curated items stored as files in the site's community/ folder
+    const C = { items: null, failed: false, q: "", kind: "all", loading: null };
+    function loadIndex() {
+      if (!C.loading) C.loading = fetch("community/index.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(d => { C.items = Array.isArray(d.items) ? d.items : []; }, () => { C.failed = true; C.items = []; });
+      return C.loading;
+    }
+    function renderCommunity() {
+      const grid = document.getElementById("commGrid");
+      if (!C.items) { grid.innerHTML = '<p class="why">Loading…</p>'; loadIndex().then(renderCommunity); return; }
+      const q = C.q.toLowerCase();
+      const list = C.items.filter(it => (C.kind === "all" || it.kind === C.kind) && (!q || (it.title + " " + (it.desc || "") + " " + (it.author || "") + " " + (it.tags || []).join(" ")).toLowerCase().includes(q)));
+      grid.innerHTML = (C.failed ? '<p class="why">The community list couldn\'t be loaded.</p>' : "") +
+        (list.length ? list.map((it, i) => '<article class="ccard"><div class="cc-k">' + (it.kind === "study" ? "Study" : "Repertoire · " + (it.color === "b" ? "Black" : "White")) + '</div><h3>' + esc(it.title) + '</h3><p class="why">' + esc(it.desc || "") + '</p><div class="cc-f"><span class="meta">by ' + esc(it.author || "Anonymous") + (it.added ? " · " + esc(it.added) : "") + '</span><button class="btn sm primary" data-ci="' + C.items.indexOf(it) + '">Open</button></div></article>').join("")
+          : (C.failed ? "" : '<p class="why">Nothing matches.</p>'));
+      grid.querySelectorAll("[data-ci]").forEach(b => b.onclick = async () => {
+        const it = C.items[+b.dataset.ci];
+        try {
+          const r = await fetch(it.file); if (!r.ok) throw new Error(r.status);
+          const p = await r.json();
+          if (!valid(p)) throw new Error("not a valid item");
+          offer(Object.assign({}, p, { name: p.name || it.title, author: it.author, desc: it.desc }), "community");
+        } catch (e) { flash("Couldn't open that item"); }
+      });
+    }
+    function setupCommunity() {
+      document.getElementById("commSearch").oninput = (e) => { C.q = e.target.value.trim(); renderCommunity(); };
+      document.querySelectorAll("[data-ck]").forEach(b => b.onclick = () => {
+        C.kind = b.dataset.ck;
+        document.querySelectorAll("[data-ck]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        renderCommunity();
+      });
+      document.getElementById("commPublish").onclick = () => openDialog("Publish to the Community",
+        "<ol class=\"implist\"><li>Open the study or repertoire section you want to publish.</li><li>Press <b>Share</b> (above a study) or <b>Share section</b> (under the repertoire tree).</li><li>Fill in a line about it and press <b>Submit to Community</b>. A GitHub page opens with everything filled in; press Submit there. You'll need a free GitHub account.</li><li>The site owner reviews it. Once approved, it shows up here for everyone.</li></ol>" +
+        '<p class="why">Your own studies and repertoire stay private unless you do this. Sharing a link with a friend doesn\'t publish anything.</p>');
+    }
+    return { pack, unpack, payloadForStudy, payloadForSection, openShare, checkHash, renderCommunity, setupCommunity, loadIndex, valid, get community() { return C; } };
   })();
 
   // ==================================================================== tabs + start-up
   let activeTab = "analysis";
   function showTab(name) {
-    if (!["analysis", "repertoire", "studies"].includes(name)) name = "analysis";
+    if (!["analysis", "repertoire", "studies", "community"].includes(name) || (name === "community" && Explorer.inClaude)) name = "analysis";
     const prev = activeTab;
     activeTab = name;
     document.querySelectorAll("[data-tab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
-    ["analysis", "repertoire", "studies"].forEach(t => { document.getElementById("tab-" + t).hidden = t !== name; });
+    ["analysis", "repertoire", "studies", "community"].forEach(t => { document.getElementById("tab-" + t).hidden = t !== name; });
     if (prev === "repertoire" && name !== "repertoire") Rep.hide();
     if (prev === "studies" && name !== "studies") Stu.hide();
     if (name === "analysis") { renderAll(); startLive(); }
     else if (live && live.state === "ready") live.stop();
     if (name === "repertoire") Rep.show();
     if (name === "studies") Stu.show();
+    if (name === "community") Share.renderCommunity();
     window.scrollTo(0, 0);
   }
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => showTab(b.dataset.tab));
@@ -4950,15 +5166,32 @@ textarea.inp { resize: vertical; font-size: 14px; }
     Stu.init(docs);
     if (activeTab === "repertoire") Rep.show();
     if (activeTab === "studies") Stu.show();
+    if (!Explorer.inClaude) Share.checkHash();
   });
   OData.load().then(() => { if (activeTab === "analysis") renderExplorer(); });
   (function () {
     const h = (location.hash || "").replace("#", "");
-    if (h === "repertoire" || h === "studies") setTimeout(() => showTab(h), 0);
+    if (h === "repertoire" || h === "studies" || (h === "community" && !Explorer.inClaude)) setTimeout(() => showTab(h), 0);
   })();
-  // ---- example mode, welcome prompts, backup
+  // ---- example mode, welcome prompts, backup, sharing
   (function () {
     const web = !Explorer.inClaude;
+    document.getElementById("tabCommunity").hidden = !web;
+    document.getElementById("repShare").hidden = !web || DEMO;
+    document.getElementById("stuShare").hidden = !web || DEMO;
+    if (web) {
+      Share.setupCommunity();
+      window.addEventListener("hashchange", () => { if ((location.hash || "").startsWith("#share=")) Share.checkHash(); });
+      document.getElementById("repShare").onclick = () => {
+        const s = Rep.current;
+        if (!s || !Object.keys(s.pos).length) { flash("This section has no moves to share yet"); return; }
+        Share.openShare(Share.payloadForSection(s));
+      };
+      document.getElementById("stuShare").onclick = () => {
+        const st = Stu.state.studies.find(x => x.id === Stu.state.study);
+        if (st) Share.openShare(Share.payloadForStudy(st));
+      };
+    }
     document.getElementById("demoBar").hidden = !DEMO;
     document.getElementById("demoLink").hidden = DEMO || !web;
     document.getElementById("backupBtn").hidden = DEMO || !web;
@@ -5001,7 +5234,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         });
     };
   })();
-  window.__studio = { Rep, Stu, Store, OData, Explorer, Demo, DEMO, showTab, get tab() { return activeTab; } };
+  window.__studio = { Rep, Stu, Store, OData, Explorer, Demo, DEMO, Share, showTab, get tab() { return activeTab; } };
 
   document.querySelectorAll("[data-boardtheme]").forEach(b => b.onclick = () => {
     setBoardTheme(b.dataset.boardtheme, true);
