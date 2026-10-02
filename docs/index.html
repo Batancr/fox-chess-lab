@@ -521,6 +521,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .switch.locked { opacity: .45; cursor: not-allowed; }
 .unlock { font-size: 13px; color: var(--muted); margin: 6px 0 8px; }
 .unlock b { color: var(--ink); }
+.rv-ctl { align-items: center; flex-wrap: nowrap; } .rv-ctl select { width: auto; padding: 6px 8px; }
 
 </style>
 
@@ -572,7 +573,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       <div class="card" id="reviewCard">
         <div class="card-h">
           <h2>Game review</h2>
-          <button class="btn primary" id="reviewBtn">Review game</button>
+          <div class="row rv-ctl"><select id="reviewDepth" aria-label="Review depth" title="How long Stockfish thinks about each position"><option value="quick">Quick (0.4 s a move)</option><option value="standard">Standard (1 s a move)</option><option value="deep">Deep (2.5 s a move)</option></select><button class="btn primary" id="reviewBtn">Review game</button></div>
         </div>
         <div class="progress" id="reviewProgress" hidden><div></div></div>
         <div class="graph" id="graph">
@@ -764,7 +765,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     Engine: <a href="https://github.com/official-stockfish/Stockfish" target="_blank" rel="noopener">Stockfish 18</a> (lite, single-threaded build) compiled to WebAssembly by
     <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">stockfish.js</a>, GPLv3, source code at that link.
     Move rules: <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a> (BSD licence).
-    Pieces: <a href="https://github.com/lichess-org/lila/blob/master/COPYING.md" target="_blank" rel="noopener">cburnett</a> by Colin M.L. Burnett and Merida by Armando Hernandez Marroquin, both GPLv2+, as used on Lichess. The wood grain is drawn by this page. Screenshots are read in your browser and never leave your device. Move ratings use winning-chance drops (inaccuracy 5+, mistake 10+, blunder 15+ points); accuracy is an approximation in the style of Lichess.
+    Pieces: <a href="https://github.com/lichess-org/lila/blob/master/COPYING.md" target="_blank" rel="noopener">cburnett</a> by Colin M.L. Burnett and Merida by Armando Hernandez Marroquin, both GPLv2+, as used on Lichess. The wood grain is drawn by this page. Screenshots are read in your browser and never leave your device. Game review uses Lichess's own move-rating and accuracy formulas, ported from its open-source code (<a href="https://github.com/lichess-org/lila" target="_blank" rel="noopener">lila</a>, AGPLv3), with Stockfish running in your browser instead of Lichess's servers.
   </footer>
 </div>
 <div class="sheet-bg" id="sheetBg" hidden>
@@ -1463,7 +1464,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
 
   // ------------------------------------------------------------------ game review
   let reviewer = null;
-  const REVIEW_MS = 450;
+  const REVIEW_TIMES = { quick: 400, standard: 1000, deep: 2500 };   // thinking time per position, in ms
+  let REVIEW_MS = REVIEW_TIMES.standard;
+  try { const v = localStorage.getItem("pcl-review"); if (REVIEW_TIMES[v]) REVIEW_MS = REVIEW_TIMES[v]; } catch (e) { /* default */ }
 
   function gameKey() { return S.startFen + "|" + S.moves.join(" "); }
   function reviewGame() { return S.saved ? S.saved : S; }
@@ -1521,20 +1524,83 @@ textarea.inp { resize: vertical; font-size: 14px; }
     document.getElementById("reviewProgress").hidden = true;
   }
 
+  // ---- Lichess's own formulas, ported from its open-source code:
+  //   lila modules/tree/src/main/Advice.scala (move judgements), modules/analyse/src/main/AccuracyPercent.scala (accuracy),
+  //   scalachess core/src/main/scala/eval.scala (win %), scalalib Maths.scala (means, standard deviation)
+  const LC_MULT = -0.00368208;
+  function lcChances(cp) { return 2 / (1 + Math.exp(LC_MULT * cp)) - 1; }                    // -1..1, not capped (as in Advice)
+  function lcWin(cp) { return 50 + 50 * lcChances(Math.max(-1000, Math.min(1000, cp))); }   // 0..100, capped at ±1000 cp
+  // our scores are White's point of view: {cp} | {mate} | {result: 0/50/100} for a finished game
+  function asScore(sc) {
+    if (!sc) return null;
+    if (sc.result != null) return sc.result === 50 ? { cp: 0 } : { mate: sc.result === 100 ? 1 : -1 };
+    return sc.mate != null ? { mate: sc.mate } : { cp: sc.cp };
+  }
+  function forceAsCp(sc) {                       // mates become huge centipawns, like Lichess's Eval.forceAsCp
+    const s2 = asScore(sc);
+    if (!s2) return null;
+    if (s2.cp != null) return s2.cp;
+    return s2.mate > 0 ? 1e9 - s2.mate : -1e9 - s2.mate;
+  }
+  function moveAccuracy(before, after) {         // win % of the side that moved, before and after its move
+    if (after >= before) return 100;
+    const raw = 103.1668100711649 * Math.exp(-0.04354415386753951 * (before - after)) - 3.166924740191411;
+    return Math.max(0, Math.min(100, raw + 1));  // +1 "uncertainty bonus", as Lichess adds
+  }
+  function judge(before, after, mover) {         // Lichess's CpAdvice, then MateAdvice
+    const pov = (sc) => { const x = asScore(sc); if (!x || mover === "w") return x; return x.cp != null ? { cp: -x.cp } : { mate: -x.mate }; };
+    const pb = pov(before), pa = pov(after);
+    if (!pb || !pa) return null;
+    if (pb.cp != null && pa.cp != null) {
+      const delta = lcChances(pb.cp) - lcChances(pa.cp);
+      return delta >= 0.3 ? "blunder" : delta >= 0.2 ? "mistake" : delta >= 0.1 ? "inacc" : null;
+    }
+    if (pb.cp != null && pa.mate != null && pa.mate < 0) return pb.cp < -999 ? "inacc" : pb.cp < -700 ? "mistake" : "blunder";      // walked into a forced mate
+    if (pb.mate != null && pb.mate > 0 && (pa.cp != null || pa.mate < 0)) { const c = pa.cp != null ? pa.cp : 0; return c > 999 ? "inacc" : c > 700 ? "mistake" : "blunder"; }   // let a forced mate slip
+    return null;
+  }
   // classification of move i (from POS[i] to POS[i+1]) in the reviewed game
   function classify(rv, i, positions) {
     const a = rv.evals[i], b = rv.evals[i + 1];
     if (!a || !b) return null;
     const mover = positions[i].turn;
-    const wa = winPct(a), wb = winPct(b);
+    const wa = lcWin(forceAsCp(a)), wb = lcWin(forceAsCp(b));
     const drop = mover === "w" ? wa - wb : wb - wa;
-    const acc = Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * Math.max(0, drop)) - 3.1669));
+    const acc = mover === "w" ? moveAccuracy(wa, wb) : moveAccuracy(100 - wa, 100 - wb);
     const mvUci = positions[i + 1].mv ? positions[i + 1].mv.from + positions[i + 1].mv.to : "";
     const isBest = rv.best[i] && rv.best[i].slice(0, 4) === mvUci;
-    let kind = null;
-    if (drop >= 15) kind = "blunder"; else if (drop >= 10) kind = "mistake"; else if (drop >= 5) kind = "inacc";
-    if (isBest) kind = "best";
+    let kind = judge(a, b, mover);
+    if (!kind && isBest) kind = "best";
     return { kind, drop, acc, isBest };
+  }
+  // Lichess's game accuracy: the average of a volatility-weighted mean and a harmonic mean of the move accuracies
+  function gameAccuracy(rv, positions) {
+    const startWhite = positions[0].turn === "w";
+    const standardStart = positions[0].fen === START_FEN;
+    const cps = rv.evals.slice(1).map(forceAsCp);
+    const initialCp = standardStart ? 15 : forceAsCp(rv.evals[0]);          // Lichess uses +0.15 for the normal start
+    const wps = [initialCp].concat(cps).map(c => c == null ? null : lcWin(c));
+    const ws = Math.max(2, Math.min(8, Math.floor(cps.length / 10)));
+    const windows = [];
+    for (let k = 0; k < Math.min(ws, wps.length) - 2; k++) windows.push(wps.slice(0, ws));
+    if (wps.length <= ws) windows.push(wps.slice());
+    else for (let st = 0; st + ws <= wps.length; st++) windows.push(wps.slice(st, st + ws));
+    const sd = (arr) => { const m = arr.reduce((x, y) => x + y, 0) / arr.length; return Math.sqrt(arr.reduce((x, y) => x + (y - m) * (y - m), 0) / arr.length); };
+    const weights = windows.map(w => w.some(x => x == null) ? null : Math.max(0.5, Math.min(12, sd(w))));
+    const acc = { w: [], b: [] };
+    for (let i = 0; i + 1 < wps.length && i < weights.length; i++) {
+      const white = (i % 2 === 0) === startWhite, p = wps[i], n = wps[i + 1], w = weights[i];
+      if (p == null || n == null || w == null) continue;
+      acc[white ? "w" : "b"].push([white ? moveAccuracy(p, n) : moveAccuracy(n, p), w]);
+    }
+    const one = (list) => {
+      if (!list.length) return null;
+      const wsum = list.reduce((x, [, w]) => x + w, 0);
+      const weighted = wsum ? list.reduce((x, [a, w]) => x + a * w, 0) / wsum : null;
+      const harmonic = list.length / list.reduce((x, [a]) => x + 1 / Math.max(1, a), 0);
+      return weighted == null ? null : (weighted + harmonic) / 2;
+    };
+    return { w: one(acc.w), b: one(acc.b) };
   }
   const ANN = { blunder: ["??", "Blunder"], mistake: ["?", "Mistake"], inacc: ["?!", "Inaccuracy"], best: ["✓", "Best move"] };
 
@@ -2007,11 +2073,11 @@ textarea.inp { resize: vertical; font-size: 14px; }
         s.acc.push(c.acc);
         if (c.kind && s[c.kind] != null) s[c.kind]++;
       }
-      const avg = (a) => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : "–";
+      const ga = gameAccuracy(rv, rpos);
       const row = (side, name, sw) => {
         const s = stats[side];
         return '<div class="who"><i style="background:' + sw + '"></i><span>' + esc(name) + "</span></div>" +
-          '<div class="acc">' + avg(s.acc) + (s.acc.length ? "%" : "") + "</div>" +
+          '<div class="acc">' + (ga[side] == null ? "–" : Math.round(ga[side]) + "%") + "</div>" +
           '<div class="cnt ann-inacc">' + s.inacc + " ?!</div>" +
           '<div class="cnt ann-mistake">' + s.mistake + " ?</div>" +
           '<div class="cnt ann-blunder">' + s.blunder + " ??</div>";
@@ -2056,6 +2122,11 @@ textarea.inp { resize: vertical; font-size: 14px; }
     });
   })();
   document.getElementById("reviewBtn").onclick = startReview;
+  (function () {
+    const sel = document.getElementById("reviewDepth");
+    sel.value = Object.keys(REVIEW_TIMES).find(k => REVIEW_TIMES[k] === REVIEW_MS) || "standard";
+    sel.onchange = () => { REVIEW_MS = REVIEW_TIMES[sel.value]; try { localStorage.setItem("pcl-review", sel.value); } catch (e) { /* this visit only */ } };
+  })();
 
   // ------------------------------------------------------------------ loading games
   const msg = (t, kind) => { const m = document.getElementById("loadMsg"); m.textContent = t; m.className = "msg" + (kind ? " " + kind : ""); };
