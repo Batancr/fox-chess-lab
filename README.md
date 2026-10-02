@@ -22,6 +22,16 @@ browser, and signing out revokes it on Lichess.
 Signed out, the explorer uses a small built-in opening book (move popularity only). Signed in with Lichess, it looks
 positions up live in the Lichess Masters and Lichess games databases, with results, average ratings and top games.
 
+## Importing and exporting your repertoire
+
+**Import from Lichess** (Repertoire tab) reads any number of your studies at once. You can search them by name, check
+whether each chapter is White or Black preparation (the site guesses from the board orientation, which side has the
+side lines, and the opening names), and merge them: lines that appear in several chapters become one, and where
+chapters disagree on your move you choose which to keep (the longest line by default).
+
+**Export PGN** saves your White and Black repertoires as two PGN files, one chapter per section, ready to import into
+a Lichess study.
+
 ## Your data
 
 Studies and repertoires are saved in your browser (localStorage) on this site. Clearing site data removes them.

@@ -469,6 +469,23 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .liitem { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); cursor: pointer; font-size: 14px; }
 .liitem .why { font-size: 12px; }
 .implist { margin: 6px 0 10px; padding-left: 18px; font-size: 14px; }
+.lisearch { margin-bottom: 8px; }
+.lictl { align-items: center; margin-bottom: 8px; }
+.lictl .inp { flex: 1 1 200px; width: auto; }
+.cflist { max-height: 46vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; margin-bottom: 12px; }
+.cfrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.cfrow select { width: auto; padding: 5px 8px; }
+.cfn { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.cfn b { font-size: 14px; }
+.cfn .why { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cfwhy { font-size: 12px; color: var(--muted); }
+.chk { font: 700 10.5px var(--font-body); color: var(--inacc); border: 1px solid var(--inacc); border-radius: 99px; padding: 0 6px; }
+.mgrow { padding: 10px 0; border-top: 1px solid var(--line); }
+.mgrow .cfn b { font-family: var(--font-mono); font-size: 13px; }
+.mgopt { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: center; padding: 4px 0 4px 4px; cursor: pointer; font-size: 13.5px; }
+.mgopt .why { grid-column: 2; font-size: 12px; }
+.exrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.exrow > span { display: flex; flex-direction: column; }
 
 </style>
 
@@ -610,7 +627,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Their reply you've prepared for</span><span><i class="lg gap"></i>Gap: popular reply with no answer yet</span><span><i class="lg fweak"></i>Weak point</span><span><i class="lg fstrong"></i>Strong point</span><span class="why">Branch thickness = how often you'll meet the line</span>
         </div>
         <div class="rep-tree" id="repTree"></div>
-        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
+        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
       </div>
       <aside class="rep-side">
         <div class="card">
@@ -4056,6 +4073,120 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function splitGames(text) { return text.split(/\n\s*\n(?=\s*\[Event)/).filter(t => t.trim()); }
 
+    // ---- which colour is a chapter written for? orientation, the shape of the tree, and the names
+    const NAME_W_FIRST = /alapin|smith-?morra|morra gambit|grand prix|rossolimo|moscow variation|closed sicilian|\badvance\b|\bexchange\b|fantasy variation|panov|wing gambit|bb5\+? sicilian|anti-sicilian|anti sicilian/;
+    const NAME_B = /sicilian|najdorf|dragon|sveshnikov|taimanov|scheveningen|kalashnikov|french|winawer|caro|pirc|modern defen|alekhine|scandinavian|philidor|petrov|petroff|berlin|marshall|schliemann|breyer|zaitsev|open spanish|two knights defen|king'?s indian defen|grunfeld|grünfeld|gruenfeld|nimzo|queen'?s indian|bogo|benoni|benko|volga|dutch|leningrad|stonewall defen|semi-slav|slav|queen'?s gambit declined|\bqgd\b|queen'?s gambit accepted|\bqga\b|tarrasch defen|chigorin defen|budapest|owen|hippopotamus|ragozin|cambridge springs|tartakower|lasker defen|meran|accelerated dragon|pelikan|lowenthal|kan variation|hedgehog|symmetrical english|reversed sicilian|king'?s indian/;
+    const NAME_W = /ruy lopez|spanish|italian|giuoco|scotch|vienna game|king'?s gambit|evans gambit|ponziani|london system|\blondon\b|catalan|english opening|\benglish\b|r[eé]ti|trompowsky|jobava|colle|torre attack|veresov|queen'?s gambit|bird'?s opening|larsen|four knights|bishop'?s opening|danish gambit|halloween/;
+    function guessColour(p, chapter, study) {
+      const o = (p.headers.Orientation || "").toLowerCase();
+      let wB = 0, bB = 0;
+      treeNodes(p.root).forEach(n => { if (n.children.length > 1) { if (n.fen.split(" ")[1] === "w") wB++; else bB++; } });
+      const t = (study + " | " + chapter + " | " + (p.headers.Event || "")).toLowerCase();
+      if (/\b(as|for|with|playing) black\b|\bblack (rep|repertoire|openings?)\b|\(black\)|^black\b|\bblack:/.test(t)) return { c: "b", why: "the name says Black", sure: true };
+      if (/\b(as|for|with|playing) white\b|\bwhite (rep|repertoire|openings?)\b|\(white\)|^white\b|\bwhite:/.test(t)) return { c: "w", why: "the name says White", sure: true };
+      if (o === "black") return { c: "b", why: "the board is turned to Black's side on Lichess", sure: true };
+      if (bB >= 2 && bB >= 3 * wB) return { c: "w", why: "Black has the side lines, White has one move each time", sure: wB === 0 };
+      if (wB >= 2 && wB >= 3 * bB) return { c: "b", why: "White has the side lines, Black has one move each time", sure: bB === 0 };
+      if (NAME_W_FIRST.test(t)) return { c: "w", why: "the opening name is usually a White choice", sure: false };
+      if (NAME_B.test(t)) return { c: "b", why: "the opening name is usually a Black choice", sure: false };
+      if (NAME_W.test(t)) return { c: "w", why: "the opening name is usually a White choice", sure: false };
+      if (wB >= 1 && bB === 0) return { c: "b", why: "White has a side line while Black always has one move", sure: false };
+      if (bB >= 1 && wB === 0) return { c: "w", why: "Black has a side line while White always has one move", sure: false };
+      if (o === "white") return { c: "w", why: "the board is turned to White's side (Lichess's default, so check it)", sure: false };
+      return { c: "w", why: "no clear signs, so check it", sure: false };
+    }
+
+    // ---- merge many chapters: same moves become one line; where they disagree, offer the deeper line
+    function subDepth(n) { if (n._d != null) return n._d; let d = 0; for (const c of n.children) d = Math.max(d, 1 + subDepth(c)); n._d = d; return d; }
+    function routeSoft(color, path, fixed, made) {
+      if (fixed) return fixed.color === color ? fixed : null;
+      let best = null;
+      for (const s of R.sections) {
+        if (s.color !== color || s.root.length > path.length) continue;
+        if (!s.root.every((m, i) => path[i] === m)) continue;
+        if (path.length > s.root.length && (s.skip || []).includes(path[s.root.length])) continue;
+        if (!best || s.root.length > best.root.length) best = s;
+      }
+      if (!best) {
+        if (!made[color]) made[color] = { id: "s" + uid8(), name: "Imported as " + (color === "w" ? "White" : "Black"), color, root: [], skip: [], pos: {}, order: R.sections.length + 1, isNew: true };
+        best = made[color];
+      }
+      return best;
+    }
+    function existingDepth(s, path, mv) {
+      const pre = path.concat(mv).join(" ");
+      let d = 0;
+      for (const k in s.pos) { const p2 = s.pos[k].p || ""; if (p2 === pre || p2.startsWith(pre + " ")) d = Math.max(d, p2.split(" ").length + 1 - path.length); }
+      return d;
+    }
+    function collectCandidates(chapters, fixed) {
+      const made = {}, cands = new Map();          // "sectionId|key" -> {s, key, path, fen, opts: Map(move -> {m, depth, sources:Set, note})}
+      for (const ch of chapters) {
+        if (ch.colour === "skip") continue;
+        const colour = ch.colour, src = ch.study + " › " + ch.name;
+        (function walk(node, path) {
+          if (node.fen.split(" ")[1] === colour && node.children.length) {
+            const s = routeSoft(colour, path, fixed, made);
+            if (s) {
+              const key = posKey(node.fen), id = s.id + "|" + key, main = node.children[0];
+              let c = cands.get(id);
+              if (!c) { c = { s, key, path, fen: node.fen, opts: new Map() }; cands.set(id, c); }
+              let o = c.opts.get(main.san);
+              if (!o) { o = { m: main.san, depth: 0, sources: new Set(), note: "", path: path }; c.opts.set(main.san, o); }
+              o.depth = Math.max(o.depth, 1 + subDepth(main)); o.sources.add(src);
+              const note = (main.comment || "").replace(/\[%[^\]]*\]/g, "").trim().slice(0, 280);
+              if (note && !o.note) o.note = note;
+            }
+          }
+          node.children.forEach(c => walk(c, path.concat(c.san)));
+        })(ch.p.root, []);
+      }
+      // what you already have counts as an option too
+      const conflicts = [];
+      let dupes = 0;
+      for (const c of cands.values()) {
+        const old = c.s.pos[c.key];
+        if (old && !c.opts.has(old.m)) c.opts.set(old.m, { m: old.m, depth: existingDepth(c.s, c.path, old.m), sources: new Set(["your repertoire"]), note: old.n || "", existing: true });
+        else if (old) c.opts.get(old.m).existing = true;
+        const opts = [...c.opts.values()];
+        if (opts.some(o => o.sources.size + (o.existing ? 1 : 0) > 1)) dupes++;
+        if (opts.length > 1) conflicts.push(c);
+      }
+      return { cands, conflicts, dupes, made };
+    }
+    function pickDefault(c, policy) {
+      const opts = [...c.opts.values()];
+      if (policy === "mine") { const ex = opts.find(o => o.existing); if (ex) return ex.m; }
+      opts.sort((a, b) => (b.depth - a.depth) || (b.sources.size - a.sources.size) || ((b.existing ? 1 : 0) - (a.existing ? 1 : 0)));
+      return opts[0].m;
+    }
+    function applyCandidates(col, choice) {
+      const st = { added: 0, changed: 0, touched: new Set(), pruned: 0 };
+      const decided = new Map();                     // "sectionId|key" -> chosen move
+      for (const [id, c] of col.cands) decided.set(id, choice.get(id) || pickDefault(c, "deeper"));
+      // a line that runs through a move you didn't keep is dropped, so only one version of each line survives
+      const runsThroughLoser = (c) => {
+        const g = new Chess();
+        for (let i = 0; i < c.path.length; i++) {
+          const k = c.s.id + "|" + posKey(g.fen()), d = decided.get(k);
+          if (g.turn() === c.s.color && d && d !== c.path[i]) return true;
+          if (!g.move(c.path[i], { sloppy: true })) return false;
+        }
+        return false;
+      };
+      for (const [id, c] of col.cands) {
+        const m = decided.get(id), o = c.opts.get(m);
+        if (!o || o.existing && c.s.pos[c.key] && c.s.pos[c.key].m === m) continue;
+        if (runsThroughLoser(c)) { st.pruned++; continue; }
+        if (c.s.isNew) { delete c.s.isNew; R.sections.push(c.s); }
+        const old = c.s.pos[c.key];
+        if (!old) { c.s.pos[c.key] = { m, p: c.path.join(" "), n: o.note || "" }; st.added++; }
+        else if (old.m !== m) { old.m = m; if (o.note && !old.n) old.n = o.note; st.changed++; }
+        st.touched.add(c.s);
+      }
+      return st;
+    }
+
     function lichessImportDialog() {
       if (Explorer.inClaude) { importDialog(); return; }
       if (!Explorer.state.auth || !Explorer.hasScope("study:read")) {
@@ -4068,37 +4199,43 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const user = Explorer.user;
       const secOpts = R.sections.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
       openDialog("Import studies from Lichess",
-        '<p class="why">Pick the studies that hold your repertoire. Each chapter\'s board orientation on Lichess decides whether its moves count as your White or Black repertoire, and each line goes into the section it belongs in.</p>' +
+        '<p class="why">Step 1 of 3: pick the studies with your repertoire. You can import one or many at once; duplicate lines are merged.</p>' +
+        '<input class="inp lisearch" id="liSearch" type="search" placeholder="Search your studies by name" autocomplete="off">' +
         '<div class="lilist" id="liList"><p class="why">Loading your studies…</p></div>' +
         '<div class="field"><label for="liUrl">Or paste links to other studies (one per line)</label><textarea id="liUrl" class="inp" rows="2" spellcheck="false" placeholder="https://lichess.org/study/abcd1234"></textarea></div>' +
-        '<div class="field"><label for="liTo">Put the moves into</label><select id="liTo"><option value="">The matching sections (automatic)</option>' + secOpts + "</select></div>" +
-        '<label class="checks"><input type="checkbox" id="liReplace"> Where a study disagrees with a move I already have, use the study\'s move</label>' +
-        '<p class="msg" id="liMsg" role="status"></p><div class="row"><button class="btn primary" id="liOk">Import</button></div>',
+        '<p class="msg" id="liMsg" role="status"></p><div class="row"><button class="btn primary" id="liOk">Next: check colours</button></div>',
         (close) => {
           let studies = [];
+          const picked = new Set();
+          const paint = () => {
+            const q = $("liSearch").value.trim().toLowerCase();
+            const vis = studies.filter(st => !q || st.name.toLowerCase().includes(q));
+            $("liList").innerHTML = studies.length ? '<div class="row lirow"><button class="linkbtn" id="liAll">Select all' + (q ? " shown" : "") + '</button><button class="linkbtn" id="liNone">Clear</button><span class="why">' + picked.size + " picked · " + vis.length + " of " + studies.length + " shown</span></div>" +
+              vis.map(st => '<label class="liitem"><input type="checkbox" value="' + esc(st.id) + '"' + (picked.has(st.id) ? " checked" : "") + '><span>' + esc(st.name) + '</span><span class="why">' + (st.updatedAt ? new Date(st.updatedAt).toLocaleDateString() : "") + "</span></label>").join("") + (vis.length ? "" : '<p class="why">No study names match.</p>')
+              : '<p class="why">No studies found on your account. You can paste links to studies below.</p>';
+            if (!studies.length) return;
+            $("liAll").onclick = () => { vis.forEach(st => picked.add(st.id)); paint(); };
+            $("liNone").onclick = () => { picked.clear(); paint(); };
+            $("liList").querySelectorAll("input").forEach(i => i.onchange = () => { if (i.checked) picked.add(i.value); else picked.delete(i.value); $("liList").querySelector(".lirow .why").textContent = picked.size + " picked · " + vis.length + " of " + studies.length + " shown"; });
+          };
+          $("liSearch").oninput = paint;
           (async () => {
             try {
               const r = await Explorer.lichess("/api/study/by/" + encodeURIComponent(user));
               if (!r.ok) throw new Error(r.status);
               studies = (await r.text()).split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(x => x && x.id).sort((a, c) => (c.updatedAt || 0) - (a.updatedAt || 0));
-              $("liList").innerHTML = studies.length ? '<div class="row lirow"><button class="linkbtn" id="liAll">Select all</button><button class="linkbtn" id="liNone">Clear</button><span class="why">' + studies.length + (studies.length === 1 ? " study" : " studies") + "</span></div>" +
-                studies.map(st => '<label class="liitem"><input type="checkbox" value="' + esc(st.id) + '"><span>' + esc(st.name) + '</span><span class="why">' + (st.updatedAt ? new Date(st.updatedAt).toLocaleDateString() : "") + "</span></label>").join("")
-                : '<p class="why">No studies found on your account. You can paste links to studies below.</p>';
-              if (studies.length) {
-                $("liAll").onclick = () => $("liList").querySelectorAll("input").forEach(i => i.checked = true);
-                $("liNone").onclick = () => $("liList").querySelectorAll("input").forEach(i => i.checked = false);
-              }
+              paint();
+              $("liSearch").focus();
             } catch (e) { $("liList").innerHTML = '<p class="msg err">Couldn\'t load your studies from Lichess (' + esc(e.message || "network problem") + "). You can still paste study links below.</p>"; }
           })();
           $("liOk").onclick = async () => {
-            const ids = [...$("liList").querySelectorAll("input:checked")].map(i => i.value);
+            const ids = [...picked];
             ($("liUrl").value.match(/study\/([A-Za-z0-9]{8})/g) || []).forEach(m => { const id = m.slice(6); if (!ids.includes(id)) ids.push(id); });
             const msg = $("liMsg");
             if (!ids.length) { msg.textContent = "Tick at least one study, or paste a study link."; msg.className = "msg err"; return; }
-            const fixed = $("liTo").value ? R.sections.find(x => x.id === $("liTo").value) : null;
-            const stats = { added: 0, changed: 0, conflicts: 0, touched: new Set(), chapters: 0, skipped: 0, failed: [] };
-            const before = R.sections.length;
             $("liOk").disabled = true;
+            const chapters = [], failed = [];
+            let skipped = 0;
             for (let i = 0; i < ids.length; i++) {
               const nm = (studies.find(x => x.id === ids[i]) || {}).name || ids[i];
               msg.className = "msg"; msg.textContent = "Reading " + nm + " (" + (i + 1) + " of " + ids.length + ")…";
@@ -4107,38 +4244,151 @@ textarea.inp { resize: vertical; font-size: 14px; }
                 if (!r.ok) throw new Error(r.status === 404 ? "not found or private" : String(r.status));
                 for (const txt of splitGames(await r.text())) {
                   const p = parsePGN(txt);
-                  if (p.startFen !== START_FEN || !p.root.children.length) { stats.skipped++; continue; }
-                  stats.chapters++;
-                  const o = (p.headers.Orientation || "").toLowerCase();
-                  importTree(p, o === "black" ? "b" : o === "white" ? "w" : (fixed ? fixed.color : "both"), fixed, $("liReplace").checked, stats);
+                  if (p.startFen !== START_FEN || !p.root.children.length) { skipped++; continue; }
+                  const name = p.headers.ChapterName || (p.headers.Event || "").replace(/^.*?:\s*/, "") || "Chapter";
+                  const study = p.headers.StudyName || nm;
+                  const g = guessColour(p, name, study);
+                  chapters.push({ p, name, study, colour: g.c, guess: g, first: lineText(mainline(p.root).slice(0, 6).map(n => n.san)) });
                 }
-              } catch (e) { stats.failed.push(nm + " (" + (e.message || "error") + ")"); }
+              } catch (e) { failed.push(nm + " (" + (e.message || "error") + ")"); }
+              if (i % 5 === 4) await sleep(150);       // be gentle with Lichess
             }
             $("liOk").disabled = false;
-            stats.touched.forEach(x => touch(x));
-            const made = R.sections.length - before;
-            if (!stats.added && !stats.changed) {
-              msg.className = "msg err";
-              msg.textContent = (stats.failed.length ? "Couldn't read: " + stats.failed.join(", ") + ". " : "") + (stats.chapters ? "Nothing new: you already have these moves" + (stats.conflicts ? " (" + stats.conflicts + " differ from yours; tick the box to use the study's)" : "") + "." : "No chapters with moves from the normal starting position.");
-              return;
-            }
+            if (!chapters.length) { msg.className = "msg err"; msg.textContent = (failed.length ? "Couldn't read: " + failed.join(", ") + ". " : "") + "No chapters with moves from the normal starting position."; return; }
             close();
-            const first = [...stats.touched][0];
-            if (first && !stats.touched.has(sec())) { R.cur = first.id; R.sel = null; }
-            render();
-            openDialog("Import finished",
-              "<p>Added <b>" + stats.added + "</b> positions" + (stats.changed ? " and changed " + stats.changed : "") + " from " + stats.chapters + (stats.chapters === 1 ? " chapter" : " chapters") + ".</p><ul class=\"implist\">" +
-              [...stats.touched].map(x => "<li>" + esc(x.name) + ": " + Object.keys(x.pos).length + " positions</li>").join("") + "</ul>" +
-              (made ? '<p class="why">Made ' + made + " new " + (made === 1 ? "section" : "sections") + " for lines that didn't fit an existing one.</p>" : "") +
-              (stats.conflicts ? '<p class="why">' + stats.conflicts + " positions where the studies (or your existing repertoire) disagree on your move; the first one was kept. Tick the replace box to prefer the newly imported moves.</p>" : "") +
-              (stats.skipped ? '<p class="why">Skipped ' + stats.skipped + " chapters that start from a custom position or have no moves.</p>" : "") +
-              (stats.failed.length ? '<p class="msg err">Couldn\'t read: ' + esc(stats.failed.join(", ")) + "</p>" : "") +
-              '<div class="row"><button class="btn primary" id="imDone">Done</button></div>',
-              (c2) => { $("imDone").onclick = c2; });
+            colourStep(chapters, { skipped, failed });
           };
         });
     }
 
+    // step 2: check which colour each chapter is for
+    function colourStep(chapters, info) {
+      const secOpts = R.sections.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
+      const unsure = chapters.filter(c => !c.guess.sure).length;
+      openDialog("Which side is each chapter for?",
+        '<p class="why">Step 2 of 3: ' + chapters.length + " chapters read. I've guessed whether each one is your White or Black preparation" + (unsure ? "; <b>" + unsure + "</b> are marked <span class=\"chk\">check</span> because the signs were weak" : "") + ". Change any that are wrong, or skip ones that aren't repertoire.</p>" +
+        '<div class="row lictl"><input class="inp" id="cfSearch" type="search" placeholder="Search chapters or studies" autocomplete="off"><label class="checks"><input type="checkbox" id="cfUnsure"> Only ones to check</label></div>' +
+        '<div class="row lictl"><span class="mini-l">Set all shown to</span><button class="btn sm" data-all="w">White</button><button class="btn sm" data-all="b">Black</button><button class="btn sm" data-all="skip">Skip</button></div>' +
+        '<div class="cflist" id="cfList"></div>' +
+        '<div class="field"><label for="cfTo">Put the moves into</label><select id="cfTo"><option value="">Split by colour into the matching sections (automatic)</option>' + secOpts + "</select></div>" +
+        '<p class="msg" id="cfMsg" role="status"></p><div class="row"><button class="btn primary" id="cfOk">Next: merge</button></div>',
+        (close) => {
+          let vis = chapters;
+          const paint = () => {
+            const q = $("cfSearch").value.trim().toLowerCase(), only = $("cfUnsure").checked;
+            vis = chapters.filter(c => (!only || !c.guess.sure) && (!q || (c.study + " " + c.name + " " + c.first).toLowerCase().includes(q)));
+            $("cfList").innerHTML = '<p class="why">' + vis.length + " of " + chapters.length + " chapters shown · " + chapters.filter(c => c.colour === "w").length + " White · " + chapters.filter(c => c.colour === "b").length + " Black · " + chapters.filter(c => c.colour === "skip").length + " skipped</p>" +
+              vis.map(c => { const i = chapters.indexOf(c); return '<div class="cfrow"><div class="cfn"><b>' + esc(c.name) + '</b><span class="why">' + esc(c.study) + " · " + esc(c.first) + '</span><span class="cfwhy">' + (c.guess.sure ? "" : '<span class="chk">check</span> ') + "Guess: " + (c.guess.c === "w" ? "White" : "Black") + ", because " + esc(c.guess.why) + '.</span></div><select data-i="' + i + '" aria-label="Side for ' + esc(c.name) + '"><option value="w"' + (c.colour === "w" ? " selected" : "") + '>White</option><option value="b"' + (c.colour === "b" ? " selected" : "") + '>Black</option><option value="skip"' + (c.colour === "skip" ? " selected" : "") + ">Skip</option></select></div>"; }).join("");
+            $("cfList").querySelectorAll("select").forEach(sl => sl.onchange = () => { chapters[+sl.dataset.i].colour = sl.value; });
+          };
+          $("cfSearch").oninput = paint; $("cfUnsure").onchange = paint;
+          document.querySelectorAll("[data-all]").forEach(b => b.onclick = () => { vis.forEach(c => c.colour = b.dataset.all); paint(); });
+          paint();
+          $("cfOk").onclick = () => {
+            const fixed = $("cfTo").value ? R.sections.find(x => x.id === $("cfTo").value) : null;
+            const use = chapters.filter(c => c.colour !== "skip");
+            if (!use.length) { $("cfMsg").className = "msg err"; $("cfMsg").textContent = "Every chapter is set to Skip."; return; }
+            const col = collectCandidates(use, fixed);
+            close();
+            mergeStep(col, Object.assign({ chapters: use.length }, info));
+          };
+        });
+    }
+
+    // step 3: where chapters (or your existing repertoire) disagree on your move, choose which line to keep
+    function mergeStep(col, info) {
+      const choice = new Map();
+      col.conflicts.forEach(c => choice.set(c.s.id + "|" + c.key, pickDefault(c, "deeper")));
+      const finish = () => {
+        const st = applyCandidates(col, choice);
+        st.touched.forEach(x => touch(x));
+        const first = [...st.touched][0];
+        if (first && !st.touched.has(sec())) { R.cur = first.id; R.sel = null; }
+        render();
+        openDialog("Import finished",
+          "<p>Added <b>" + st.added + "</b> positions" + (st.changed ? " and changed " + st.changed : "") + " from " + info.chapters + (info.chapters === 1 ? " chapter" : " chapters") + ".</p><ul class=\"implist\">" +
+          [...st.touched].map(x => "<li>" + esc(x.name) + (/white|black/i.test(x.name) ? "" : " (" + (x.color === "w" ? "White" : "Black") + ")") + ": " + Object.keys(x.pos).length + " positions</li>").join("") + "</ul>" +
+          (col.dupes ? '<p class="why">' + col.dupes + (col.dupes === 1 ? " position was" : " positions were") + " prepared more than once (in several chapters, or already in your repertoire) and were merged into one.</p>" : "") +
+          (col.conflicts.length ? '<p class="why">' + col.conflicts.length + (col.conflicts.length === 1 ? " disagreement" : " disagreements") + " settled" + (st.pruned ? "; " + st.pruned + " positions from the lines you didn't keep were left out" : "") + ".</p>" : "") +
+          (info.skipped ? '<p class="why">Skipped ' + info.skipped + (info.skipped === 1 ? " chapter that starts" : " chapters that start") + " from a custom position or with no moves.</p>" : "") +
+          (info.failed && info.failed.length ? '<p class="msg err">Couldn\'t read: ' + esc(info.failed.join(", ")) + "</p>" : "") +
+          (st.added || st.changed ? "" : '<p class="why">Nothing new: you already had all of these moves.</p>') +
+          '<div class="row"><button class="btn primary" id="imDone">Done</button></div>',
+          (c2) => { $("imDone").onclick = c2; });
+      };
+      if (!col.conflicts.length) { finish(); return; }
+      openDialog("Merge your preparation",
+        '<p class="why">Step 3 of 3: ' + col.dupes + " positions appear in more than one place and will be merged. In <b>" + col.conflicts.length + "</b> positions your chapters (or your existing repertoire) choose different moves. I've picked the move with the longest preparation after it; change any you like. Lines after the moves you don't keep are left out, so only one version of each line remains.</p>" +
+        '<div class="row lictl"><span class="mini-l">For all</span><button class="btn sm" id="mgDeep">Longest line</button><button class="btn sm" id="mgMine">Keep my existing moves</button></div>' +
+        '<div class="cflist" id="mgList"></div><div class="row"><button class="btn primary" id="mgOk">Import</button></div>',
+        (close) => {
+          const paint = () => {
+            $("mgList").innerHTML = col.conflicts.map((c, i) => {
+              const id = c.s.id + "|" + c.key, opts = [...c.opts.values()].sort((a, b) => b.depth - a.depth);
+              return '<div class="mgrow"><div class="cfn"><b>' + esc(lineText(c.path) || "Start") + '</b><span class="why">' + esc(c.s.name) + "</span></div>" +
+                opts.map(o => '<label class="mgopt"><input type="radio" name="mg' + i + '" value="' + esc(o.m) + '"' + (choice.get(id) === o.m ? " checked" : "") + '><span><b>' + esc(o.m) + "</b> · " + o.depth + " more " + (o.depth === 1 ? "move" : "moves") + ' of preparation</span><span class="why">' + esc([...o.sources].slice(0, 3).join("; ") + (o.sources.size > 3 ? " and " + (o.sources.size - 3) + " more" : "")) + "</span></label>").join("") + "</div>";
+            }).join("");
+            col.conflicts.forEach((c, i) => document.querySelectorAll('input[name="mg' + i + '"]').forEach(r => r.onchange = () => choice.set(c.s.id + "|" + c.key, r.value)));
+          };
+          $("mgDeep").onclick = () => { col.conflicts.forEach(c => choice.set(c.s.id + "|" + c.key, pickDefault(c, "deeper"))); paint(); };
+          $("mgMine").onclick = () => { col.conflicts.forEach(c => choice.set(c.s.id + "|" + c.key, pickDefault(c, "mine"))); paint(); };
+          paint();
+          $("mgOk").onclick = () => { close(); finish(); };
+        });
+    }
+
+    // ---- export: your repertoire as PGN, one chapter per section, White and Black separately
+    function sectionTree(s) {
+      const root = { san: null, fen: START_FEN, children: [], comment: "", parent: null };
+      let n = root;
+      for (const m of s.root) { const g = new Chess(n.fen), mv = g.move(m, { sloppy: true }); if (!mv) return root; const c = { san: mv.san, fen: g.fen(), children: [], comment: "", parent: n }; n.children.push(c); n = c; }
+      const seen = new Set();
+      (function grow(node, atRoot) {
+        const key = posKey(node.fen);
+        if (seen.has(key)) return;
+        seen.add(key);
+        const turn = node.fen.split(" ")[1];
+        if (turn === s.color) {
+          const e = s.pos[key];
+          if (!e) return;
+          const g = new Chess(node.fen), mv = g.move(e.m, { sloppy: true });
+          if (!mv) return;
+          const c = { san: mv.san, fen: g.fen(), children: [], comment: e.n || "", parent: node };
+          node.children.push(c); grow(c, false);
+        } else {
+          const g = new Chess(node.fen), pop = OData.moves(node.fen).map(x => x.san);
+          const reps = g.moves().filter(m => !(atRoot && (s.skip || []).includes(m))).map(m => { const g2 = new Chess(node.fen); g2.move(m); return { san: m, fen: g2.fen() }; })
+            .filter(x => s.pos[posKey(x.fen)]).sort((a, b) => ((pop.indexOf(a.san) + 1 || 99) - (pop.indexOf(b.san) + 1 || 99)));
+          for (const x of reps) { const c = { san: x.san, fen: x.fen, children: [], comment: "", parent: node }; node.children.push(c); grow(c, false); }
+        }
+      })(n, true);
+      return root;
+    }
+    function repertoirePGN(list) {
+      return list.map(s => treeToPGN(sectionTree(s), { Event: s.name, Site: "Fox Chess Lab", Orientation: s.color === "w" ? "white" : "black", ChapterName: s.name })).join("\n\n\n") + "\n";
+    }
+    function saveText(name, text) {
+      if (Explorer.inClaude) { copyText(text, "PGN"); return; }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type: "application/x-chess-pgn" }));
+      a.download = name; document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
+    function exportDialog() {
+      const W = R.sections.filter(x => x.color === "w"), B = R.sections.filter(x => x.color === "b"), s = sec();
+      const n = (l) => l.reduce((a, x) => a + Object.keys(x.pos).length, 0);
+      const verb = Explorer.inClaude ? "Copy" : "Download";
+      openDialog("Export your repertoire",
+        '<p class="why">Saves your preparation as PGN, one chapter per section, which you can import into a Lichess study. ' + (Explorer.inClaude ? "Here it's copied to your clipboard." : "") + "</p>" +
+        '<div class="exrow"><span><b>White repertoire</b><span class="why">' + W.length + " sections · " + n(W) + ' positions</span></span><button class="btn" id="exW"' + (n(W) ? "" : " disabled") + ">" + verb + "</button></div>" +
+        '<div class="exrow"><span><b>Black repertoire</b><span class="why">' + B.length + " sections · " + n(B) + ' positions</span></span><button class="btn" id="exB"' + (n(B) ? "" : " disabled") + ">" + verb + "</button></div>" +
+        '<div class="exrow"><span><b>This section only</b><span class="why">' + esc(s.name) + " · " + Object.keys(s.pos).length + ' positions</span></span><button class="btn" id="exS"' + (Object.keys(s.pos).length ? "" : " disabled") + ">" + verb + "</button></div>",
+        () => {
+          $("exW").onclick = () => saveText("fox-white-repertoire.pgn", repertoirePGN(W.filter(x => Object.keys(x.pos).length)));
+          $("exB").onclick = () => saveText("fox-black-repertoire.pgn", repertoirePGN(B.filter(x => Object.keys(x.pos).length)));
+          $("exS").onclick = () => saveText("fox-" + s.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pgn", repertoirePGN([s]));
+        });
+    }
     // ---- wiring (once)
     function setup() {
       board = new MiniBoard($("repBoard"), { onMove: (mv) => onMove(mv) });
@@ -4150,6 +4400,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("repDelete").onclick = deleteDialog;
       $("repImport").onclick = importDialog;
       $("repLichess").onclick = lichessImportDialog;
+      $("repExport").onclick = exportDialog;
       $("repLichess").hidden = Explorer.inClaude;
       $("repEngineBtn").onclick = () => { R.engine = !R.engine; if (!R.engine) { engineSeq++; board.setArrows([]); if (live) live.stop(); } renderPanel(); };
       $("repBack").onclick = () => { const s = sec(); if (R.sel && R.sel.length > s.root.length) { R.sel = R.sel.slice(0, -1); R.scrollToSel = true; render(); } };
@@ -4175,7 +4426,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       render();
     }
     function hide() { engineSeq++; }
-    return { init, show, hide, render, refreshData, get state() { return R; }, build };
+    return { init, show, hide, render, refreshData, sectionTree, repertoirePGN, guessColour, get state() { return R; }, build };
   })();
 
   // ==================================================================== STUDIES
