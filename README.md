@@ -37,16 +37,14 @@ a Lichess study.
 **Share** (above a study, or *Share section* under the repertoire tree) makes a link that carries the study or section
 inside it, after the `#`, so nothing is uploaded anywhere. Whoever opens the link can save their own copy.
 
-**Community** shows studies and repertoires approved by the site owner. Visitors submit from the Share dialog, which
-opens a pre-filled GitHub issue on this repository. To approve one, copy the share link (or the attached .txt file) from
-the issue and run, from this folder:
+**Community** shows studies and repertoires shared by players. Visitors submit from the Share dialog, which opens a
+pre-filled GitHub issue on this repository. A GitHub Action (`.github/workflows/community.yml`, running
+`tools/auto_community.py`) checks the submission, adds it to `docs/community/`, comments on the issue and closes it,
+with no manual approval. Each GitHub account can publish up to 5 posts a day. The site reads the list straight from
+the repository, so new posts show within about 5 minutes.
 
-```bash
-python3 tools/add_community.py "PASTE-THE-SHARE-LINK" --title "Title to show" --author "Name" --desc "One line about it"
-git add . && git commit -m "Add community item" && git push
-```
-
-To remove an item, delete its file in `docs/community/` and its entry in `docs/community/index.json`.
+To take a post down, delete its file in `docs/community/` and its entry in `docs/community/index.json`, then push.
+Items with `"placeholder": true` are the site's own examples. `tools/add_community.py` still adds an item by hand.
 
 ## Example
 

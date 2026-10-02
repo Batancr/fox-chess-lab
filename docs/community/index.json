@@ -2,6 +2,18 @@
  "version": 1,
  "items": [
   {
+   "title": "Calculation exercises",
+   "kind": "study",
+   "author": "Batancr",
+   "added": "2026-10-02",
+   "desc": "Calculation exercise #1: Black to move. Work out the strongest line before you touch a piece.",
+   "tags": [
+    "calculation",
+    "tactics"
+   ],
+   "file": "community/calculation-exercises.json"
+  },
+  {
    "title": "White: 1.e4 starter repertoire",
    "kind": "rep",
    "color": "w",
@@ -15,7 +27,8 @@
     "Caro-Kann",
     "French"
    ],
-   "file": "community/white-1e4-starter.json"
+   "file": "community/white-1e4-starter.json",
+   "placeholder": true
   },
   {
    "title": "Black: 1...e5 with the Marshall",
@@ -31,7 +44,8 @@
     "Italian",
     "Scotch"
    ],
-   "file": "community/black-e5-marshall.json"
+   "file": "community/black-e5-marshall.json",
+   "placeholder": true
   },
   {
    "title": "Black: Queen's Gambit Declined",
@@ -47,7 +61,8 @@
     "Catalan",
     "London"
    ],
-   "file": "community/black-qgd.json"
+   "file": "community/black-qgd.json",
+   "placeholder": true
   },
   {
    "title": "Ruy Lopez ideas",
@@ -60,7 +75,8 @@
     "Berlin",
     "Spanish"
    ],
-   "file": "community/ruy-lopez-ideas.json"
+   "file": "community/ruy-lopez-ideas.json",
+   "placeholder": true
   },
   {
    "title": "Calculation: famous combinations",
@@ -74,7 +90,8 @@
     "Morphy",
     "Anderssen"
    ],
-   "file": "community/famous-combinations.json"
+   "file": "community/famous-combinations.json",
+   "placeholder": true
   }
  ]
 }

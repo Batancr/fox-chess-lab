@@ -516,6 +516,11 @@ textarea.inp { resize: vertical; font-size: 14px; }
   .tabs { width: 100%; overflow-x: auto; }
   .tabs button { flex: 1 0 auto; padding: 7px 9px; font-size: 13.5px; }
 }
+.ph-b { display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 99px; border: 1px dashed var(--muted); color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+.ccard.ph { border-style: dashed; }
+.switch.locked { opacity: .45; cursor: not-allowed; }
+.unlock { font-size: 13px; color: var(--muted); margin: 6px 0 8px; }
+.unlock b { color: var(--ink); }
 
 </style>
 
@@ -725,6 +730,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
             <div class="card-h"><h2>Calculation</h2><span class="timer" id="stuTimer" title="Time since you started">0:00</span></div>
             <textarea id="stuPrompt" class="inp" rows="2" aria-label="Exercise description"></textarea>
             <p class="meta" id="stuLineInfo"></p>
+            <p class="unlock" id="stuUnlock"></p>
             <div class="row"><button class="btn primary" id="stuCheck">Check my line</button><button class="btn" id="stuRetry">Try again</button></div>
             <div class="result" id="stuResult" hidden></div>
             <h3 class="mini-h">Past attempts</h3>
@@ -747,7 +753,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
   <section id="tab-community" hidden>
     <div class="card comm-head">
       <div class="card-h"><h2>Community</h2><button class="btn sm primary" id="commPublish">Publish yours</button></div>
-      <p class="why">Studies and repertoires shared by players and approved by the site owner. Open one to look through it, and save your own copy to study or change.</p>
+      <p class="why">Studies and repertoires shared by players. Open one to look through it, and save your own copy to study or change. New posts appear automatically; anything inappropriate is removed.</p>
       <div class="row comm-ctl"><input id="commSearch" class="inp" type="search" placeholder="Search by opening, name or author" autocomplete="off">
         <div class="seg" role="group" aria-label="Show"><button data-ck="all" aria-pressed="true">All</button><button data-ck="study" aria-pressed="false">Studies</button><button data-ck="rep" aria-pressed="false">Repertoires</button></div></div>
     </div>
@@ -2072,7 +2078,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     msg("Loaded " + document.querySelector('#sampleSel option[value="' + key + '"]').textContent + ".", "ok");
     if (autoReview) startReview();
   }
-  document.getElementById("sampleSel").onchange = (e) => loadSample(e.target.value, true);
+  document.getElementById("sampleSel").onchange = (e) => loadSample(e.target.value, false);
   document.getElementById("loadBtn").onclick = () => {
     const text = document.getElementById("pgnInput").value.trim();
     if (!text) { msg("Paste a PGN or a FEN into the box first.", "err"); return; }
@@ -4661,6 +4667,17 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function go(node) { if (!node) return; T.node = node; renderBoard(null); renderTreeHtml(); renderSide(); runEngine(); }
 
+    // ---- calculation: analysis stays locked until you've tried a few lines (each branch counts as a line)
+    const NEED_LINES = 3;
+    function linesTried(ch) {
+      const set = new Set((ch.attempts || []).map(a => a.line));
+      if (T.tree) treeNodes(T.tree).forEach(n => { if (n !== T.tree && !n.children.length) set.add(lineText(pathTo(n).map(x => x.san), T.tree.fen)); });
+      return set.size;
+    }
+    function locked(ch) { return !!ch && ch.type === "calc" && !ch.unlocked && linesTried(ch) < NEED_LINES; }
+    // the line to check: from the start to the selected move, then on along its main continuation
+    function selectedLine() { return T.node && T.node !== T.tree ? pathTo(T.node).concat(mainline(T.node)) : mainline(T.tree); }
+
     // ---- rendering
     function render() {
       if (!T.loaded) return;
@@ -4673,8 +4690,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("stuStudyName").value = study().name;
       $("stuChapName").value = ch.name;
       $("stuType").textContent = ch.type === "calc" ? "Calculation exercise" : "Opening / analysis";
+      if (ch.type === "calc" && !ch.unlocked && ch.eval && (ch.attempts || []).length) ch.unlocked = true;   // revealed before this rule existed
+      if (locked(ch) && (ch.eval || ch.arrows)) { ch.eval = false; ch.arrows = false; }
       $("stuEvalT").setAttribute("aria-pressed", String(!!ch.eval));
       $("stuArrowT").setAttribute("aria-pressed", String(!!ch.arrows));
+      const lk = locked(ch);
+      ["stuEvalT", "stuArrowT"].forEach(id => { $(id).classList.toggle("locked", lk); $(id).setAttribute("aria-disabled", String(lk)); $(id).title = lk ? "Unlocks after you've tried " + NEED_LINES + " lines" : ""; });
       renderBoard(null); renderTreeHtml(); renderSide(); runEngine();
       if (ch.type === "calc" && !T.check) startTimer(); else stopTimer();
     }
@@ -4751,10 +4772,14 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("stuCalc").hidden = !calc;
       if (!calc) return;
       $("stuPrompt").value = ch.prompt || "";
-      const line = mainline(T.tree);
+      const line = selectedLine();
+      const branches = treeNodes(T.tree).filter(n => n !== T.tree && !n.children.length).length;
       $("stuCheck").disabled = T.checking || !line.length;
-      $("stuCheck").textContent = T.checking ? "Checking your line…" : (T.check ? "Check again" : "Check my line");
-      $("stuLineInfo").textContent = line.length ? "Your line: " + lineText(line.map(n => n.san), T.tree.fen) : "No moves yet. Play the line you calculated.";
+      $("stuCheck").textContent = T.checking ? "Checking your line…" : branches > 1 ? "Check this line" : (T.check ? "Check again" : "Check my line");
+      $("stuLineInfo").textContent = line.length ? (branches > 1 ? "Selected line: " : "Your line: ") + lineText(line.map(n => n.san), T.tree.fen) : "No moves yet. Play the line you calculated.";
+      const tried = linesTried(ch), lk = locked(ch);
+      $("stuUnlock").innerHTML = lk ? "<b>Evaluation and arrows unlock after " + NEED_LINES + " lines</b> (" + tried + " of " + NEED_LINES + " so far). Each line you play counts, side lines too: go back a move and play something else to start one."
+        : (ch.type === "calc" ? "Evaluation and arrows are unlocked." : "");
       const r = $("stuResult");
       if (T.check && T.check.summary) { r.hidden = false; r.innerHTML = T.check.summary; }
       else r.hidden = true;
@@ -4790,7 +4815,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     async function checkLine() {
       const ch = chapter(), st = study();
-      const line = mainline(T.tree);
+      const line = selectedLine();
       if (!line.length || T.checking) return;
       const help = !!(ch.eval || ch.arrows);
       const secs = (Date.now() - T.timerStart) / 1000;
@@ -4820,13 +4845,16 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const startTxt = fmtScore(evals[0].score), endTxt = fmtScore(evals[evals.length - 1].score);
       let summary = "<p><b>" + (first ? "Your line goes wrong at " + esc(moveLabel(first.n, true)) + "." : "Your line holds up.") + "</b> ";
       summary += "It starts at " + startTxt + " and ends at " + endTxt + ". ";
-      summary += matched ? (matched === 1 ? "Your first move matches" : "Your first " + matched + " moves match") + " Stockfish's top choice." : "Your first move isn't Stockfish's top choice" + (rows[0] && rows[0].bestSan ? " (it prefers " + esc(rows[0].bestSan) + ")" : "") + ".";
-      if (first && first.bestSan) summary += " Better at that point: <b>" + esc(first.bestSan) + "</b> (" + fmtScore(first.before.score) + ").";
-      summary += "</p>";
-      T.check = { byId, summary };
+      // record the attempt first: it may be the line that unlocks the analysis
       const attempt = { at: Date.now(), line: lineText(line.map(n => n.san), T.tree.fen), firstErr: first ? moveLabel(first.n, true) : null, matched, secs: Math.round(secs), help };
       ch.attempts = [attempt].concat(ch.attempts || []).slice(0, 20);
-      ch.eval = true; ch.arrows = true;          // reveal
+      const open = !locked(ch);
+      summary += matched ? (matched === 1 ? "Your first move matches" : "Your first " + matched + " moves match") + " Stockfish's top choice." : "Your first move isn't Stockfish's top choice" + (open && rows[0] && rows[0].bestSan ? " (it prefers " + esc(rows[0].bestSan) + ")" : "") + ".";
+      if (open && first && first.bestSan) summary += " Better at that point: <b>" + esc(first.bestSan) + "</b> (" + fmtScore(first.before.score) + ").";
+      if (!open) summary += " Keep calculating: try " + (NEED_LINES - linesTried(ch)) + " more " + (NEED_LINES - linesTried(ch) === 1 ? "line" : "lines") + " to unlock the engine's answer.";
+      summary += "</p>";
+      T.check = { byId: open ? byId : {}, summary };
+      if (open) { ch.unlocked = true; ch.eval = true; ch.arrows = true; }          // reveal
       T.checking = false;
       saveStudy(st, 0);
       stopTimer();
@@ -4909,8 +4937,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("stuNext").onclick = () => go(T.node && T.node.children[0]);
       $("stuLast").onclick = () => { let n = T.node; while (n && n.children.length) n = n.children[0]; go(n); };
       $("stuFlip").onclick = () => { const ch = chapter(); if (!ch) return; ch.orient = ch.orient === "b" ? "w" : "b"; saveStudy(study()); renderBoard(null); runEngine(); };
-      $("stuEvalT").onclick = () => { const ch = chapter(); ch.eval = !ch.eval; saveStudy(study()); render(); };
-      $("stuArrowT").onclick = () => { const ch = chapter(); ch.arrows = !ch.arrows; saveStudy(study()); render(); };
+      const lockedMsg = () => flash("Try " + NEED_LINES + " lines first (" + linesTried(chapter()) + " so far). Side lines count.");
+      $("stuEvalT").onclick = () => { const ch = chapter(); if (locked(ch)) { lockedMsg(); return; } ch.eval = !ch.eval; if (ch.type === "calc") ch.unlocked = true; saveStudy(study()); render(); };
+      $("stuArrowT").onclick = () => { const ch = chapter(); if (locked(ch)) { lockedMsg(); return; } ch.arrows = !ch.arrows; if (ch.type === "calc") ch.unlocked = true; saveStudy(study()); render(); };
       $("stuDelete").onclick = () => {
         const n = T.node; if (!n || !n.parent) return;
         n.parent.children = n.parent.children.filter(c => c !== n);
@@ -4970,6 +4999,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
   // A share link carries the study or repertoire section inside the link itself (after the #), compressed.
   // Nothing is uploaded: the part after # never reaches the web server. Whoever opens it can save their own copy.
   const COMMUNITY_REPO = "Batancr/fox-chess-lab";          // where "Submit to Community" opens a GitHub issue
+  // new posts are committed by a GitHub Action; reading them straight from the repository shows them without a site rebuild
+  const COMMUNITY_RAW = "https://raw.githubusercontent.com/" + COMMUNITY_REPO + "/main/docs/";
   const Share = (function () {
     function b64url(bytes) {
       let s = "";
@@ -5032,7 +5063,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         '<div class="field"><label for="shLink">Link (' + url.length.toLocaleString() + " characters)</label><textarea id=\"shLink\" class=\"inp\" rows=\"3\" readonly spellcheck=\"false\"></textarea></div>" +
         (huge ? '<p class="msg err">This one is very long, and many apps will cut it off. Use Export PGN instead, or share a smaller part.</p>' : long ? '<p class="why">It\'s a long link. It works in a browser, but some chat apps may cut it off; if that happens, use Export PGN instead.</p>' : "") +
         '<div class="row"><button class="btn primary" id="shCopy">Copy link</button></div>' +
-        '<div class="sh-pub"><b>Publish it to the Community page</b><p class="why">Sends it to the site owner for review on GitHub (you\'ll need a free GitHub account). Once approved, it appears on the Community tab for everyone. Whatever you submit becomes public.</p>' +
+        '<div class="sh-pub"><b>Publish it to the Community page</b><p class="why">Posts it on GitHub (you\'ll need a free GitHub account) and it appears on the Community tab for everyone within a few minutes, with no review. Whatever you submit becomes public, so keep it to chess. The site owner removes anything inappropriate.</p>' +
         '<div class="field"><label for="shDesc">A line about it (optional)</label><input id="shDesc" class="inp" maxlength="200" placeholder="e.g. A low-maintenance Caro-Kann for club players"></div>' +
         '<div class="field"><label for="shAuthor">Name to show</label><input id="shAuthor" class="inp" maxlength="40" value="' + esc(signed || "") + '" placeholder="Your name or Lichess username"></div>' +
         '<div class="row"><button class="btn" id="shSubmit">Submit to Community</button></div><p class="msg" id="shMsg"></p></div>',
@@ -5045,11 +5076,11 @@ textarea.inp { resize: vertical; font-size: 14px; }
             let body = "**Title:** " + payload.name + "\n**Type:** " + summary(payload) + "\n**Shown as by:** " + author + "\n**About it:** " + (desc || "(none)") + "\n\n";
             const fits = url.length < 6000;
             body += fits ? "**Share link:**\n" + url + "\n" : "**The share link was too long for an issue.** I've attached the file `" + fileName(payload) + "` that the site downloaded for me (drag it into this box).\n";
-            body += "\n_Submitted from Fox Chess Lab. By submitting, I agree that this can be shown publicly on the site._";
+            body += "\n_Submitted from Fox Chess Lab. By submitting, I agree that this can be shown publicly on the site. It is published automatically._";
             if (!fits) downloadText(fileName(payload), JSON.stringify(payload));
             window.open("https://github.com/" + COMMUNITY_REPO + "/issues/new?" + new URLSearchParams({ title, body }), "_blank", "noopener");
             const m = document.getElementById("shMsg");
-            m.className = "msg ok"; m.textContent = fits ? "A GitHub page opened with your submission filled in. Press Submit there." : "A GitHub page opened. Drag the downloaded file into it, then press Submit.";
+            m.className = "msg ok"; m.textContent = (fits ? "A GitHub page opened with your submission filled in. Press Submit there." : "A GitHub page opened. Drag the downloaded file into it, then press Submit.") + " It goes live on the Community tab within a few minutes.";
           };
         });
     }
@@ -5093,8 +5124,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
 
     // ---- the Community tab: curated items stored as files in the site's community/ folder
     const C = { items: null, failed: false, q: "", kind: "all", loading: null };
+    function getJSON(path) {
+      const one = (u) => fetch(u, { cache: "no-cache" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+      return one(COMMUNITY_RAW + path).catch(() => one(path));
+    }
     function loadIndex() {
-      if (!C.loading) C.loading = fetch("community/index.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      if (!C.loading) C.loading = getJSON("community/index.json")
         .then(d => { C.items = Array.isArray(d.items) ? d.items : []; }, () => { C.failed = true; C.items = []; });
       return C.loading;
     }
@@ -5102,15 +5137,15 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const grid = document.getElementById("commGrid");
       if (!C.items) { grid.innerHTML = '<p class="why">Loading…</p>'; loadIndex().then(renderCommunity); return; }
       const q = C.q.toLowerCase();
-      const list = C.items.filter(it => (C.kind === "all" || it.kind === C.kind) && (!q || (it.title + " " + (it.desc || "") + " " + (it.author || "") + " " + (it.tags || []).join(" ")).toLowerCase().includes(q)));
+      const order = C.items.slice().sort((a, b) => (a.placeholder ? 1 : 0) - (b.placeholder ? 1 : 0));
+      const list = order.filter(it => (C.kind === "all" || it.kind === C.kind) && (!q || (it.title + " " + (it.desc || "") + " " + (it.author || "") + " " + (it.tags || []).join(" ")).toLowerCase().includes(q)));
       grid.innerHTML = (C.failed ? '<p class="why">The community list couldn\'t be loaded.</p>' : "") +
-        (list.length ? list.map((it, i) => '<article class="ccard"><div class="cc-k">' + (it.kind === "study" ? "Study" : "Repertoire · " + (it.color === "b" ? "Black" : "White")) + '</div><h3>' + esc(it.title) + '</h3><p class="why">' + esc(it.desc || "") + '</p><div class="cc-f"><span class="meta">by ' + esc(it.author || "Anonymous") + (it.added ? " · " + esc(it.added) : "") + '</span><button class="btn sm primary" data-ci="' + C.items.indexOf(it) + '">Open</button></div></article>').join("")
+        (list.length ? list.map((it, i) => '<article class="ccard' + (it.placeholder ? " ph" : "") + '"><div class="cc-k">' + (it.placeholder ? '<span class="ph-b" title="An example added by the site to show how the Community works">Placeholder</span>' : "") + (it.kind === "study" ? "Study" : "Repertoire · " + (it.color === "b" ? "Black" : "White")) + '</div><h3>' + esc(it.title) + '</h3><p class="why">' + esc(it.desc || "") + '</p><div class="cc-f"><span class="meta">by ' + esc(it.author || "Anonymous") + (it.added ? " · " + esc(it.added) : "") + '</span><button class="btn sm primary" data-ci="' + C.items.indexOf(it) + '">Open</button></div></article>').join("")
           : (C.failed ? "" : '<p class="why">Nothing matches.</p>'));
       grid.querySelectorAll("[data-ci]").forEach(b => b.onclick = async () => {
         const it = C.items[+b.dataset.ci];
         try {
-          const r = await fetch(it.file); if (!r.ok) throw new Error(r.status);
-          const p = await r.json();
+          const p = await getJSON(it.file);
           if (!valid(p)) throw new Error("not a valid item");
           offer(Object.assign({}, p, { name: p.name || it.title, author: it.author, desc: it.desc }), "community");
         } catch (e) { flash("Couldn't open that item"); }
@@ -5124,7 +5159,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         renderCommunity();
       });
       document.getElementById("commPublish").onclick = () => openDialog("Publish to the Community",
-        "<ol class=\"implist\"><li>Open the study or repertoire section you want to publish.</li><li>Press <b>Share</b> (above a study) or <b>Share section</b> (under the repertoire tree).</li><li>Fill in a line about it and press <b>Submit to Community</b>. A GitHub page opens with everything filled in; press Submit there. You'll need a free GitHub account.</li><li>The site owner reviews it. Once approved, it shows up here for everyone.</li></ol>" +
+        "<ol class=\"implist\"><li>Open the study or repertoire section you want to publish.</li><li>Press <b>Share</b> (above a study) or <b>Share section</b> (under the repertoire tree).</li><li>Fill in a line about it and press <b>Submit to Community</b>. A GitHub page opens with everything filled in; press Submit there. You'll need a free GitHub account.</li><li>It's checked automatically and shows up here for everyone within a few minutes. You'll get a comment on GitHub when it's live.</li></ol><p class=\"why\">Each GitHub account can publish up to 5 posts a day. Posts marked <b>Placeholder</b> are examples added by the site.</p>" +
         '<p class="why">Your own studies and repertoire stay private unless you do this. Sharing a link with a friend doesn\'t publish anything.</p>');
     }
     return { pack, unpack, payloadForStudy, payloadForSection, openShare, checkHash, renderCommunity, setupCommunity, loadIndex, valid, get community() { return C; } };
@@ -5245,7 +5280,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
   });
   // ------------------------------------------------------------------ start
   loadSample("opera", false);
-  live = new Engine(() => { startLive(); renderEngine(); startReview(); }, () => renderEngine());
+  live = new Engine(() => { startLive(); renderEngine(); }, () => renderEngine());          // game review only runs when you press the button
   window.__lab = { S, get POS() { return POS; }, get live() { return live; }, get liveLines() { return liveLines; } };
 })();
 </script>
