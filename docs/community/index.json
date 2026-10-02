@@ -2,6 +2,17 @@
  "version": 1,
  "items": [
   {
+   "title": "Canadian Open Games",
+   "kind": "study",
+   "author": "Batancr",
+   "added": "2026-10-02",
+   "desc": "Game 2",
+   "tags": [],
+   "file": "community/canadian-open-games.json",
+   "gh": "Batancr",
+   "issue": 4
+  },
+  {
    "title": "Canadian Closed Games",
    "kind": "study",
    "author": "Batancr",
