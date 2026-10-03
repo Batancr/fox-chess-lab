@@ -78,7 +78,7 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 24px; letter
 .game-title span { font-weight: 400; color: var(--muted); }
 
 /* board + eval bar */
-.board-wrap { display: flex; gap: 10px; align-items: stretch; max-width: 660px; }
+.board-wrap { display: flex; gap: 10px; align-items: stretch; max-width: var(--ana-board, 660px); }
 .evalbar { position: relative; width: 30px; flex: none; border-radius: 6px; overflow: hidden; background: var(--piece-black); border: 1px solid var(--line); }
 .evalbar .white { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: var(--piece-white); transition: height .35s ease; }
 .evalbar .num { position: absolute; left: 0; right: 0; font: 600 9.5px/1 var(--font-mono); text-align: center; padding: 5px 0; letter-spacing: -.02em; }
@@ -111,7 +111,7 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 24px; letter
 .promo button:hover { background-color: var(--sunken); }
 
 /* controls under the board */
-.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; max-width: 660px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; max-width: max(660px, var(--ana-board, 660px)); }
 .nav { display: flex; gap: 4px; }
 .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 12px; cursor: pointer; line-height: 1.2; }
 .btn:hover { background: var(--sunken); }
@@ -288,7 +288,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .rsec-g { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meter { height: 6px; border-radius: 99px; background: var(--sunken); overflow: hidden; }
 .meter span { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
-.rep-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 18px; align-items: start; }
+.rep-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, var(--rep-side, 380px)); gap: 18px; align-items: start; }
 @media (max-width: 980px) { .rep-main { grid-template-columns: minmax(0, 1fr); } }
 .rep-h { flex-wrap: wrap; align-items: flex-start; }
 .rep-h h2 { font-size: 16px; }
@@ -364,7 +364,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .stu-empty p { max-width: 60ch; color: var(--muted); }
 .stu-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 360px); gap: 18px; align-items: start; }
 @media (max-width: 1180px) { .stu-main { grid-template-columns: minmax(0, 1fr); } }
-.stu-boardcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; max-width: 640px; }
+.stu-boardcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; max-width: var(--stu-board, 640px); }
 .stu-titles { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .title-inp { font: 700 17px var(--font-body); width: auto; flex: 1 1 200px; }
 .chap-inp { width: auto; flex: 1 1 160px; }
@@ -582,7 +582,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .bld .nav { margin-top: 8px; }
 .bld-act { margin-top: 10px; }
 .bld #bldInfo { font-size: 13.5px; }
-#bldBg .mb-wrap { max-width: 460px; }
+#bldBg .mb-wrap { max-width: var(--bld-board, 460px); }
 .bld #bldStatus { font-family: var(--font-body); font-size: 13.5px; }
 
 /* ---------- split an opening into its own section ---------- */
@@ -590,6 +590,28 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .rep-split .inp { width: 220px; max-width: 100%; padding: 6px 9px; }
 .rep-split .msg { margin: 0; flex-basis: 100%; min-height: 0; }
 .rep-split .msg:empty { display: none; }
+
+/* ---------- board size control ---------- */
+.sizer { align-items: center; }
+.sizer .mini-l { padding: 0 8px; }
+.sizer button { padding: 4px 10px; font-weight: 700; }
+@media (max-width: 700px) { .sizer { display: none; } }   /* on a phone the board already fills the width */
+
+/* ---------- saved trees ---------- */
+.rep-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: -4px 0 14px; }
+.tchip { display: inline-flex; align-items: center; }
+.tchip .fold .why { font-size: 12px; }
+.tdel { font-size: 17px; text-decoration: none; color: var(--muted); padding: 0 6px; }
+
+/* ---------- full-screen tree ---------- */
+.rep-tree-wrap { position: relative; }
+.tree-full { position: absolute; right: 10px; bottom: 10px; z-index: 2; box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
+.tree-tools { display: none; }
+.rep-tree-wrap.full { position: fixed; inset: 0; z-index: 55; background: var(--bg); padding: calc(12px + env(safe-area-inset-top, 0px)) 16px calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
+.rep-tree-wrap.full .tree-tools { display: flex; align-items: center; gap: 6px; }
+.rep-tree-wrap.full .rep-tree { flex: 1; max-height: none; min-height: 0; }
+.rep-tree-wrap.full .tree-full { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+body.tree-full-open { overflow: hidden; }
 
 </style>
 
@@ -720,6 +742,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
   <section id="tab-repertoire" hidden>
     <div class="rep-folders" id="repFolders"></div>
     <div class="rep-sections" id="repSections"></div>
+    <div class="rep-saved" id="repSaved" hidden></div>
     <div class="rep-split"><label class="mini-l" for="repSplitIn">Give an opening its own section</label><input class="inp" id="repSplitIn" placeholder="White: Sicilian" autocomplete="off"><button class="btn sm" id="repSplitBtn">Make section</button><span class="msg" id="repSplitMsg" role="status"></span></div>
     <div class="rep-main">
       <div class="card rep-treecard">
@@ -731,13 +754,14 @@ textarea.inp { resize: vertical; font-size: 14px; }
             <label class="mini-l" for="repShare">Show replies</label>
             <select id="repShare"><option value="0.15">15%+ of games</option><option value="0.1">10%+</option><option value="0.05" selected>5%+</option><option value="0.02">2%+</option><option value="0.01">1%+</option></select>
             <button class="btn icon" id="repZoomOut" aria-label="Zoom out">−</button><button class="btn icon" id="repZoomIn" aria-label="Zoom in">+</button>
+            <button class="btn sm" id="repSaveTree" title="Keep this tree's numbers so it opens instantly, with no lookups">Save tree</button>
           </div>
         </div>
         <div class="dbar" id="repDbar"></div>
         <div class="legend">
           <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Prepared reply</span><span><i class="lg gap"></i>Gap: common reply not prepared</span><span><i class="lg fweak"></i>Weak point</span><span><i class="lg fstrong"></i>Strong point</span><span class="why">Thicker = more common</span>
         </div>
-        <div class="rep-tree" id="repTree"></div>
+        <div class="rep-tree-wrap" id="repTreeWrap"><div class="tree-tools" id="repTreeTools"><button class="btn icon" id="repFullOut" aria-label="Zoom out">−</button><button class="btn icon" id="repFullIn" aria-label="Zoom in">+</button><span class="mini-l">Click a move to go there</span></div><div class="rep-tree" id="repTree"></div><button class="btn sm tree-full" id="repFull" title="See the whole tree">⤢ Full screen</button></div>
         <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repAsStudy" title="Turn this section into a study chapter, with all its lines and notes">Open as study</button><button class="btn" id="repShareSec" hidden>Share section</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
       </div>
       <aside class="rep-side">
@@ -2962,6 +2986,24 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     return g.move(san, { sloppy: true });
   }
+  // a Board −/+ control: changes one CSS size (a board's width) and remembers it in this browser
+  function addBoardSizer(container, key, cssVar, def, min, max) {
+    if (!container || container.querySelector(".sizer")) return;
+    let v = def;
+    try { const x = +localStorage.getItem("pcl-size-" + key); if (x >= min && x <= max) v = x; } catch (e) { /* default size */ }
+    const apply = () => document.documentElement.style.setProperty(cssVar, v + "px");
+    apply();
+    const box = document.createElement("div");
+    box.className = "seg sizer"; box.setAttribute("role", "group"); box.setAttribute("aria-label", "Board size");
+    box.innerHTML = '<span class="mini-l">Board</span><button type="button" data-sz="-1" title="Smaller board" aria-label="Smaller board">−</button><button type="button" data-sz="1" title="Larger board" aria-label="Larger board">+</button>';
+    box.querySelectorAll("button").forEach(b => b.onclick = () => {
+      v = Math.max(min, Math.min(max, v + 60 * +b.dataset.sz));
+      apply();
+      try { localStorage.setItem("pcl-size-" + key, String(v)); } catch (e) { /* not remembered */ }
+      window.dispatchEvent(new Event("resize"));
+    });
+    container.appendChild(box);
+  }
   function parsePGN(text) {
     const headers = {};
     let body = String(text || "").replace(/\r/g, "").replace(/ /g, " ");
@@ -3437,6 +3479,43 @@ textarea.inp { resize: vertical; font-size: 14px; }
       schedulePump();
       return e || null;
     }
+    // how fast lookups really come back on this device and connection, for honest time estimates
+    const K_RATE = "pcl-explorer-rate";
+    let speed = (() => { try { const o = JSON.parse(ls.get(K_RATE) || "null"); return o && o.n > 0 && o.ms > 0 ? o : { n: 0, ms: 0 }; } catch (e) { return { n: 0, ms: 0 }; } })(), lastDone = 0;
+    function noteSpeed() {
+      const now = Date.now();
+      if (lastDone && now - lastDone < 8000) {
+        speed.n++; speed.ms += now - lastDone;
+        if (speed.n > 400) { speed.n /= 2; speed.ms /= 2; }
+        if (speed.n % 10 === 0) ls.set(K_RATE, JSON.stringify(speed));
+      }
+      lastDone = now;
+    }
+    // positions per second; until there's enough of your own history, a cautious guess
+    function rate() { return speed.n >= 15 ? Math.max(0.2, Math.min(20, speed.n / (speed.ms / 1000))) : 1.5; }
+    function rateMeasured() { return speed.n >= 15; }
+    // ---- saved trees: copy out the numbers a tree used, and put them back later so it opens with no lookups
+    function exportEntries(fens) {
+      const out = [], sg = sig();
+      for (const fen of fens) {
+        const k = keyOf(fen), e = X.cache.get(k);
+        if (e && !e.builtin && !e.snap) { const p = pack(e); p[6] = []; p[7] = []; out.push([k.slice(sg.length + 1), p]); }
+      }
+      return { sig: sg, set: { source: X.set.source, ratings: X.set.ratings.slice(), speeds: X.set.speeds.slice() }, entries: out };
+    }
+    function importEntries(saved) {
+      if (!saved || !saved.entries) return 0;
+      const s0 = saved.set || {};
+      if (s0.source && (s0.source !== X.set.source || (s0.source === "lichess" && (String(s0.ratings) !== String(X.set.ratings) || String(s0.speeds) !== String(X.set.speeds))))) {
+        X.set.source = s0.source; if (s0.ratings) X.set.ratings = s0.ratings.slice(); if (s0.speeds) X.set.speeds = s0.speeds.slice();
+        ls.set(K_SET, JSON.stringify(X.set));
+        for (const [k, j] of X.jobs) if (!j.running) X.jobs.delete(k);
+      }
+      let n = 0;
+      for (const [k, p] of saved.entries) { try { const key = saved.sig + "|" + k; if (!X.cache.has(key)) { X.cache.set(key, unpack(p)); n++; } } catch (e) { /* skip a damaged entry */ } }
+      changed(); renderBars();
+      return n;
+    }
     // Masters numbers for one position, whatever database the page is showing (used by the repertoire builder)
     function canMasters() {
       if (X.fatal) return false;
@@ -3543,6 +3622,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         const e = normalize(j.fen, p);
         if (res && res.cache && res.cache.storedAt) e.t = res.cache.storedAt;
         X.cache.delete(j.key); X.cache.set(j.key, e); X.dirty.add(j.key); settle(j, e);
+        noteSpeed();
         X.failed.delete(j.key); X.jobs.delete(j.key);
         X.firstOk = true; X.unavailable = 0; X.note = "";
         saveCacheSoon();
@@ -3973,7 +4053,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
 
     return {
-      init, mode, sig, stamp, peek, get, clear, onChange, label, short, renderBars, inClaude: IN_CLAUDE, masters, canMasters,
+      init, mode, sig, stamp, peek, get, clear, onChange, label, short, renderBars, inClaude: IN_CLAUDE, masters, canMasters, rate, rateMeasured, exportEntries, importEntries,
       signIn, hasScope, lichess, get user() { return X.auth ? X.auth.user : ""; },
       get settings() { return X.set; },
       setOn(v) { X.set.on = v; ls.set(K_SET, JSON.stringify(X.set)); changed(); },
@@ -4062,7 +4142,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 
   // ==================================================================== REPERTOIRE
   const Rep = (function () {
-    const R = { sections: [], cur: "white", sel: null, depth: 6, minShare: 0.05, zoom: 1, engine: false, cache: new Map(), loaded: false };
+    const R = { sections: [], cur: "white", sel: null, zoom: 1, engine: false, cache: new Map(), loaded: false, trees: [], full: false };
     const DEFAULTS = [
       { id: "white", name: "White", color: "w", root: [], skip: [] },
       { id: "b-e4", name: "Black vs 1.e4", color: "b", root: ["e4"], skip: [] },
@@ -4100,7 +4180,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       return f;
     }
     function sec() { const l = fsec(); return l.find(s => s.id === R.cur) || l[0]; }
-    function docOf(s) { return { kind: "rep", id: s.id, name: s.name, color: s.color, root: s.root, skip: s.skip || [], pos: s.pos, order: s.order || 0, folder: s.folder || MAIN, src: s.src || [], updated: Date.now() }; }
+    function docOf(s) { return { kind: "rep", id: s.id, name: s.name, color: s.color, root: s.root, skip: s.skip || [], pos: s.pos, order: s.order || 0, folder: s.folder || MAIN, src: s.src || [], depth: s.depth || 6, minShare: s.minShare || 0.05, updated: Date.now() }; }
     function touch(s) {
       s.ver = (s.ver || 0) + 1; R.cache.delete(s.id);
       s.saved = true;
@@ -4112,13 +4192,15 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function init(docs) {
       const reps = docs.filter(d => d.kind === "rep"), fd = docs.find(d => d.kind === "repfolders");
       R.folders = fd && Array.isArray(fd.folders) && fd.folders.length ? fd.folders.map(f => ({ id: String(f.id), name: String(f.name || "Repertoire") })) : [{ id: MAIN, name: "My repertoire" }];
-      if (reps.length) R.sections = reps.map(d => ({ id: d.id, name: d.name, color: d.color, root: d.root || [], skip: d.skip || [], pos: d.pos || {}, order: d.order || 0, folder: d.folder || MAIN, src: Array.isArray(d.src) ? d.src.filter(x => x && /^[A-Za-z0-9]{8}$/.test(x.id)).map(x => ({ id: x.id, name: String(x.name || x.id) })) : [], saved: true }));
+      if (reps.length) R.sections = reps.map(d => ({ id: d.id, name: d.name, color: d.color, root: d.root || [], skip: d.skip || [], pos: d.pos || {}, order: d.order || 0, folder: d.folder || MAIN, depth: [5, 6, 8, 10, 12, 15].includes(+d.depth) ? +d.depth : 6, minShare: [0.15, 0.1, 0.05, 0.02, 0.01].includes(+d.minShare) ? +d.minShare : 0.05, src: Array.isArray(d.src) ? d.src.filter(x => x && /^[A-Za-z0-9]{8}$/.test(x.id)).map(x => ({ id: x.id, name: String(x.name || x.id) })) : [], saved: true }));
       else R.sections = standardSections(MAIN);
       R.sections.forEach(x => { if (!R.folders.some(f => f.id === x.folder)) R.folders.push({ id: x.folder, name: x.folder === MAIN ? "My repertoire" : "Repertoire" }); });
       R.folder = fd && R.folders.some(f => f.id === fd.cur) ? fd.cur : R.folders[0].id;
       R.folders.forEach(f => ensureFolderHasSections(f.id));
       R.sections.sort((a, b) => (a.order || 0) - (b.order || 0));
       if (!fsec().find(s => s.id === R.cur)) R.cur = fsec()[0].id;
+      R.trees = docs.filter(d => d.kind === "tree" && d.id && d.sec && Array.isArray(d.entries));
+      try { const z = +localStorage.getItem("pcl-tree-zoom"); if (z >= 0.5 && z <= 1.6) R.zoom = z; } catch (e) { /* default zoom */ }
       R.loaded = true;
     }
 
@@ -4142,12 +4224,14 @@ textarea.inp { resize: vertical; font-size: 14px; }
       if (r === undefined) { r = new Chess(fen).game_over(); if (OVER.size > 200000) OVER.clear(); OVER.set(fen, r); }
       return r;
     }
+    const depthOf = (s) => s.depth || 6, shareOf = (s) => s.minShare || 0.05;
+    function saveSettings(s) { R.cache.delete(s.id); Store.saveSoon("rep-" + s.id, () => docOf(s)); s.saved = true; }
     function build(s) {
       const fetch = s.id === R.cur;                 // only the open section asks the live database for missing positions
-      const ck = s.id + "|" + (s.ver || 0) + "|" + R.depth + "|" + R.minShare + "|" + (OData.book ? 1 : 0) + "|" + Explorer.stamp() + "|" + (fetch ? 1 : 0);
+      const ck = s.id + "|" + (s.ver || 0) + "|" + depthOf(s) + "|" + shareOf(s) + "|" + (OData.book ? 1 : 0) + "|" + Explorer.stamp() + "|" + (fetch ? 1 : 0);
       const hit = R.cache.get(s.id);
       if (hit && hit.ck === ck) return hit;
-      const maxPly = R.depth * 2;
+      const maxPly = depthOf(s) * 2;
       if (fetch) { Explorer.clear("rep"); Explorer.get(START_FEN, { owner: "rep", prio: 2 }); }   // the start position sets the par score
       let pending = 0, failed = 0;
       // path -> opponent replies you have prepared; worked out once per change to the section, not on every redraw
@@ -4206,7 +4290,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         const out = (san) => isSkipped(s, node.path.concat(san));
         const skipN = stats.reduce((a, b) => a + (out(b.san) ? b.n : 0), 0);
         const total = Math.max(0, (data.total || stats.reduce((a, b) => a + b.n, 0)) - skipN);
-        const list = stats.filter(st => !out(st.san) && total && st.n / total >= R.minShare);
+        const list = stats.filter(st => !out(st.san) && total && st.n / total >= shareOf(s));
         const extra = idx.get(node.path.join(" "));
         if (extra) for (const san of extra) if (!list.find(x => x.san === san) && !out(san)) list.push(stats.find(x => x.san === san) || { san, n: 0 });
         if (!list.length) { node.noData = true; leaves.push(node); return; }
@@ -4268,6 +4352,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function renderSections() {
       renderFolders();
+      renderSaved();
       const el = $("repSections");
       let h = "";
       for (const s of fsec()) {
@@ -4297,9 +4382,10 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function renderTree() {
       const s = sec(), b = build(s);
       const wrap = $("repTree");
+      renderDepthMenu(s, b);
       $("repTitle").textContent = s.name;
       renderSources(s);
-      $("repCoverage").innerHTML = (b.pending ? "Loading " + b.pending + " more " + (b.pending === 1 ? "position" : "positions") + "… so far " : "") + "<b>" + Math.round(b.coverage * 100) + "%</b> of " + esc(Explorer.short()) + " games stay in your preparation to move " + R.depth + " · " + b.prepared + (b.prepared === 1 ? " position" : " positions") + " prepared";
+      $("repCoverage").innerHTML = (b.pending ? "Loading " + b.pending + " more " + (b.pending === 1 ? "position" : "positions") + leftText(s) + "… so far " : "") + "<b>" + Math.round(b.coverage * 100) + "%</b> of " + esc(Explorer.short()) + " games stay in your preparation to move " + depthOf(s) + " · " + b.prepared + (b.prepared === 1 ? " position" : " positions") + " prepared";
       if (Explorer.mode() === "builtin" && !OData.book && !OData.failed) { wrap.innerHTML = '<p class="rep-empty">Loading opening statistics…</p>'; return; }
       // layout
       let row = 0;
@@ -4345,7 +4431,11 @@ textarea.inp { resize: vertical; font-size: 14px; }
       }
       wrap.innerHTML = '<svg class="rtree" width="' + Math.round(W * R.zoom) + '" height="' + Math.round(H * R.zoom) + '" viewBox="0 0 ' + W + " " + H + '">' + edges + pills + "</svg>";
       wrap.querySelectorAll("g.n").forEach(g => {
-        const go = () => { R.sel = g.dataset.id ? g.dataset.id.split(" ") : []; renderTree(); renderPanel(); };
+        const go = () => {
+          R.sel = g.dataset.id ? g.dataset.id.split(" ") : [];
+          if (R.full) { setFull(false); R.scrollToSel = true; }    // back to the board and tree, at that move
+          renderTree(); renderPanel();
+        };
         g.addEventListener("click", go);
         g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
       });
@@ -4413,7 +4503,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         if (mine) tag = e && e.m === st.san ? '<span class="tag mine">your move</span>' : "";
         else {
           const f2 = fenAfter(path.concat(st.san));
-          tag = f2 && s.pos[posKey(f2)] ? '<span class="tag ok">prepared</span>' : (share >= R.minShare ? '<span class="tag gap">gap</span>' : "");
+          tag = f2 && s.pos[posKey(f2)] ? '<span class="tag ok">prepared</span>' : (share >= shareOf(sec()) ? '<span class="tag gap">gap</span>' : "");
         }
         const ttl = st.n.toLocaleString() + " games" + (st.avg ? " · average rating " + st.avg : "");
         rows += '<button class="mrow' + (live ? " lv" : "") + '" data-san="' + esc(st.san) + '" title="' + esc(ttl) + '"><span class="ms">' + esc(st.san) + "</span>" +
@@ -4518,7 +4608,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           if (back) $("dlBack").onclick = () => { close(); mergeBack(s, back); flash("Moved back into “" + back.name + "”"); };
           $("dlOk").onclick = () => {
             R.sections = R.sections.filter(x => x !== s);
-            Store.remove("rep-" + s.id);
+            Store.remove("rep-" + s.id); dropTreesOf(s);
             ensureFolderHasSections(R.folder);
             R.cur = fsec()[0].id; R.sel = null; close(); render();
           };
@@ -5077,6 +5167,20 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
 
     // nothing is changed until here: create the new repertoire (if any), add the moves, save
+    // the depth menu shown after an import: each choice with how long the trees will take to load
+    function depthChooser(secs) {
+      if (!secs.length) return "";
+      const live = Explorer.mode() === "live";
+      const need = (d) => secs.reduce((a, x) => a + (estimate(x).need[d] || 0), 0);
+      const sug = Math.min(...secs.map(suggestDepth));
+      return '<div class="field"><label for="imDepth">How deep should the tree go?</label><select id="imDepth">' +
+        DEPTHS.map(d => '<option value="' + d + '"' + (d === sug ? " selected" : "") + ">to move " + d + (live && need(d) ? " · " + need(d) + " positions to look up, " + waitText(need(d)) : live ? " · ready now" : "") + (d === sug ? " (suggested)" : "") + "</option>").join("") +
+        '</select><span class="why" id="imDepthWhy">' + depthWhy(secs, sug) + "</span></div>";
+    }
+    function depthWhy(secs, d) {
+      if (Explorer.mode() !== "live") return "The built-in book is instant at any depth. You can change this any time above the tree.";
+      return "Times are " + (Explorer.rateMeasured() ? "based on how fast lookups have come back for you" : "a cautious guess until the site has measured your speed") + ". Lookups happen once: after that the tree opens from memory, and Save tree keeps it for good. Change the depth any time above the tree.";
+    }
     function finishImport(W, col) {
       if (W.folder === "__new") {
         const st0 = W.chapters[0] && W.chapters[0].study;
@@ -5100,8 +5204,108 @@ textarea.inp { resize: vertical; font-size: 14px; }
         (info.skipped ? '<p class="why">Skipped ' + info.skipped + (info.skipped === 1 ? " chapter that starts" : " chapters that start") + " from a custom position or with no moves.</p>" : "") +
         (info.failed && info.failed.length ? '<p class="msg err">Couldn\'t read: ' + esc(info.failed.join(", ")) + "</p>" : "") +
         (st.added || st.changed ? "" : '<p class="why">Nothing new: you already had all of these moves.</p>') +
+        depthChooser([...st.touched]) +
         '<div class="row"><button class="btn primary" id="imDone">Done</button></div>',
-        (c2) => { $("imDone").onclick = c2; });
+        (c2) => {
+          const secs = [...st.touched];
+          if ($("imDepth")) $("imDepth").onchange = () => { $("imDepthWhy").textContent = depthWhy(secs, +$("imDepth").value); };
+          $("imDone").onclick = () => {
+            if ($("imDepth")) { const d = +$("imDepth").value; secs.forEach(x => { x.depth = d; saveSettings(x); }); render(); }
+            c2();
+          };
+        });
+    }
+
+    // ---- how long a tree will take to load: count the positions it still has to look up, at your measured speed
+    const DEPTHS = [5, 6, 8, 10, 12, 15];
+    const estCache = new Map();
+    function estimate(s) {
+      const k = s.id + "|" + (s.ver || 0) + "|" + Object.keys(s.pos).length + "|" + Explorer.stamp();   // stamp changes whenever new numbers arrive
+      const hit = estCache.get(s.id);
+      if (hit && hit.k === k) return hit.v;
+      const need = {}; DEPTHS.forEach(d => need[d] = 0);
+      const live = Explorer.mode() === "live";
+      const add = (plies, fen) => { if (live && !Explorer.peek(fen)) DEPTHS.forEach(d => { if (plies < 2 * d) need[d]++; }); };
+      for (const key in s.pos) {
+        const e = s.pos[key], toks = e.p ? e.p.split(" ") : [];
+        let fen = START_FEN, ok = true;
+        for (const t of toks) { const sp = step(fen, t); if (!sp) { ok = false; break; } fen = sp.fen; }
+        if (!ok) continue;
+        add(toks.length, fen);                          // the position where you move
+        const sp = step(fen, e.m);
+        if (sp) add(toks.length + 1, sp.fen);           // and the one your opponent faces after it
+      }
+      const v = { need, live };
+      estCache.set(s.id, { k, v });
+      return v;
+    }
+    function waitText(n) {
+      if (!n) return "";
+      const sec = n / Explorer.rate();
+      return sec < 50 ? "~" + Math.max(5, Math.round(sec / 5) * 5) + " s" : sec < 3600 ? "~" + Math.round(sec / 60) + " min" : "over an hour";
+    }
+    function suggestDepth(s) {
+      const v = estimate(s);
+      let best = 5;
+      for (const d of DEPTHS) if ((v.need[d] || 0) / Explorer.rate() <= 90) best = d;
+      return best;
+    }
+    function leftText(s) { const t = waitText(estimate(s).need[depthOf(s)]); return t ? " (" + t + " left)" : ""; }
+    function renderDepthMenu(s, b) {
+      const sel = $("repDepth"), v = estimate(s), cur = depthOf(s);
+      sel.innerHTML = DEPTHS.map(d => '<option value="' + d + '"' + (d === cur ? " selected" : "") + ">to move " + d + (v.live && v.need[d] && d !== cur ? " · " + waitText(v.need[d]) : "") + "</option>").join("");
+      sel.title = v.live ? "Times are estimates from how fast lookups have come back on this device" + (Explorer.rateMeasured() ? "." : " (a cautious guess until there's more history).") : "";
+      $("repShare").value = String(shareOf(s));
+      const live = Explorer.mode() === "live", saved = R.trees.find(t => t.sec === s.id && t.depth === cur && t.sig === Explorer.sig());
+      $("repSaveTree").hidden = !live;
+      $("repSaveTree").disabled = !!b.pending;
+      $("repSaveTree").textContent = saved ? "Update saved tree" : "Save tree";
+      $("repSaveTree").title = b.pending ? "Available once every position has loaded" : "Keep this tree's numbers so it opens instantly, with no lookups";
+    }
+
+    // ---- saved trees: the numbers behind a loaded tree, kept with your work so it reopens with no waiting
+    function saveTree() {
+      const s = sec(), b = build(s);
+      if (b.pending) return;
+      const data = Explorer.exportEntries([...new Set(b.nodes.map(n => n.fen))]);
+      const old = R.trees.find(t => t.sec === s.id && t.depth === depthOf(s) && t.sig === data.sig);
+      const doc = { kind: "tree", id: old ? old.id : "t" + uid8(), sec: s.id, name: s.name, depth: depthOf(s), minShare: shareOf(s), label: Explorer.label(), sig: data.sig, set: data.set, entries: data.entries, prepared: Object.keys(s.pos).length, folder: s.folder || MAIN, savedAt: Date.now() };
+      R.trees = R.trees.filter(t => t !== old).concat(doc);
+      Store.saveSoon("tree-" + doc.id, () => doc, 0);
+      renderSaved(); renderDepthMenu(s, b);
+      flash("Saved “" + s.name + "” to move " + depthOf(s) + " (" + doc.entries.length + " positions). It opens instantly from Saved trees.");
+    }
+    function renderSaved() {
+      const el = $("repSaved"), list = R.trees.filter(t => (t.folder || MAIN) === R.folder).sort((a, b) => b.savedAt - a.savedAt);
+      el.hidden = !list.length;
+      if (!list.length) { el.innerHTML = ""; return; }
+      el.innerHTML = '<span class="mini-l">Saved trees</span><div class="fchips">' + list.map(t => '<span class="tchip"><button class="fold" data-tree="' + esc(t.id) + '" title="' + esc(t.label + ", " + t.entries.length + " positions, saved " + new Date(t.savedAt).toLocaleDateString()) + '">' + esc(t.name) + ' <span class="why">· move ' + t.depth + "</span></button>" +
+        '<button class="linkbtn tdel" data-tdel="' + esc(t.id) + '" aria-label="Delete saved tree ' + esc(t.name) + '">×</button></span>').join("") + "</div>";
+      el.querySelectorAll("[data-tree]").forEach(b => b.onclick = () => openSavedTree(R.trees.find(t => t.id === b.dataset.tree)));
+      el.querySelectorAll("[data-tdel]").forEach(b => b.onclick = () => { const t = R.trees.find(x => x.id === b.dataset.tdel); if (!t) return; R.trees = R.trees.filter(x => x !== t); Store.remove("tree-" + t.id); renderSaved(); flash("Deleted the saved tree"); });
+    }
+    function openSavedTree(t) {
+      if (!t) return;
+      const s = R.sections.find(x => x.id === t.sec);
+      if (!s) { flash("That section no longer exists. You can delete this saved tree."); return; }
+      if (s.folder !== R.folder) { R.folder = s.folder || MAIN; saveFolders(); }
+      Explorer.importEntries(t);
+      s.depth = t.depth; s.minShare = t.minShare; saveSettings(s);
+      R.cur = s.id; R.sel = null;
+      render();
+      const left = estimate(s).need[t.depth] || 0;
+      flash("Opened the saved tree for “" + s.name + "”" + (left ? ": " + left + " new " + (left === 1 ? "position needs" : "positions need") + " loading since you saved it" : ", no loading needed"));
+    }
+    function dropTreesOf(s) { R.trees.filter(t => t.sec === s.id).forEach(t => Store.remove("tree-" + t.id)); R.trees = R.trees.filter(t => t.sec !== s.id); }
+
+    // ---- full-screen tree; picking a move goes back to the normal view at that move
+    function setFull(on) {
+      R.full = on;
+      $("repTreeWrap").classList.toggle("full", on);
+      document.body.classList.toggle("tree-full-open", on);
+      $("repFull").textContent = on ? "✕ Exit full screen" : "⤢ Full screen";
+      if (!on) { const m = document.querySelector(".rep-main"); if (m) m.scrollIntoView({ block: "start" }); }
+      renderTree();
     }
 
     // ---- split an opening into its own section: "White: Sicilian" or "White: 1.e4 c5"
@@ -5195,7 +5399,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       for (const k in s.pos) if (!t.pos[k]) t.pos[k] = s.pos[k];
       t.skip = (t.skip || []).filter(x => x !== "=" + s.root.join(" "));
       R.sections = R.sections.filter(x => x !== s);
-      Store.remove("rep-" + s.id);
+      Store.remove("rep-" + s.id); dropTreesOf(s);
       touch(t);
       R.cur = t.id; R.sel = null; render();
     }
@@ -5221,6 +5425,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           '<div class="row bld-act"><button class="btn primary" id="bldAdd">Add to my repertoire</button><button class="btn" id="bldStudy">Save as a study</button><button class="btn" id="bldStop">Stop</button></div><p class="msg" id="bldMsg" role="status"></p></div></div></div>';
         document.body.appendChild(bg);
         B.board = new MiniBoard($("bldBoard"), { onMove: () => {} });
+        addBoardSizer($("bldFirst").parentElement, "bld", "--bld-board", 460, 300, 760);
         $("bldClose").onclick = closeBuilder;
         bg.onpointerdown = (e) => { if (e.target === bg) closeBuilder(); };
         $("bldFirst").onclick = () => bGo(B.root);
@@ -5505,10 +5710,14 @@ textarea.inp { resize: vertical; font-size: 14px; }
     // ---- wiring (once)
     function setup() {
       board = new MiniBoard($("repBoard"), { onMove: (mv) => onMove(mv) });
-      $("repDepth").onchange = (e) => { R.depth = +e.target.value; render(); };
-      $("repShare").onchange = (e) => { R.minShare = +e.target.value; render(); };
-      $("repZoomIn").onclick = () => { R.zoom = Math.min(1.6, R.zoom + 0.15); renderTree(); };
-      $("repZoomOut").onclick = () => { R.zoom = Math.max(0.5, R.zoom - 0.15); renderTree(); };
+      $("repDepth").onchange = (e) => { const s = sec(); s.depth = +e.target.value; saveSettings(s); render(); };
+      $("repShare").onchange = (e) => { const s = sec(); s.minShare = +e.target.value; saveSettings(s); render(); };
+      const zoom = (d) => { R.zoom = Math.max(0.5, Math.min(1.6, R.zoom + d)); try { localStorage.setItem("pcl-tree-zoom", String(R.zoom)); } catch (e) { /* not remembered */ } renderTree(); };
+      $("repZoomIn").onclick = () => zoom(0.15); $("repZoomOut").onclick = () => zoom(-0.15);
+      $("repFullIn").onclick = () => zoom(0.15); $("repFullOut").onclick = () => zoom(-0.15);
+      $("repFull").onclick = () => setFull(!R.full);
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && R.full) setFull(false); });
+      $("repSaveTree").onclick = saveTree;
       $("repRename").onclick = renameDialog;
       $("repSplitBtn").onclick = () => splitOpening($("repSplitIn").value);
       $("repSplitIn").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); splitOpening($("repSplitIn").value); } };
@@ -6472,6 +6681,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
   Explorer.onChange(() => { if (activeTab === "analysis") renderExplorer(); else if (activeTab === "repertoire") Rep.refreshData(); });
   document.getElementById("exToggle").onclick = () => { Explorer.setOn(!Explorer.settings.on); renderExplorer(); };
   Explorer.renderBars();
+  addBoardSizer(document.querySelector(".board-col .controls"), "ana", "--ana-board", 660, 360, 1140);
+  addBoardSizer(document.getElementById("repEngineBtn") && document.getElementById("repEngineBtn").parentElement, "rep", "--rep-side", 380, 300, 720);
+  addBoardSizer(document.getElementById("stuFlip") && document.getElementById("stuFlip").parentElement, "stu", "--stu-board", 640, 340, 1020);
   Store.init();
   Store.loadAll().then((docs) => {
     Rep.init(docs);
