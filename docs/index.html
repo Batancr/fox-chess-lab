@@ -569,6 +569,20 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .opdetect { margin: 6px 0 2px 26px; }
 .opdetect .why { font-size: 12px; }
 
+/* ---------- repertoire builder ---------- */
+.gaprow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; border-bottom: 1px solid var(--line); }
+.gaprow .gapitem { border-bottom: 0; }
+.gapbuild { white-space: nowrap; }
+.bld .soltree { max-height: 46vh; }
+.bld .tm.opp { color: var(--muted); }
+.bld .tm.own { text-decoration: underline; text-underline-offset: 3px; }
+.bld .tm.cur { color: var(--accent-ink); }
+.bld .nav { margin-top: 8px; }
+.bld-act { margin-top: 10px; }
+.bld #bldInfo { font-size: 13.5px; }
+#bldBg .mb-wrap { max-width: 460px; }
+.bld #bldStatus { font-family: var(--font-body); font-size: 13.5px; }
+
 </style>
 
 <div class="app">
@@ -727,7 +741,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           <p class="rep-status" id="repStatus"></p>
           <div class="moves-tbl" id="repMoves"></div>
           <textarea id="repNote" class="inp note" rows="2" placeholder="Your plans and ideas for this position…" hidden></textarea>
-          <div class="row"><button class="btn" id="repRemove" hidden>Remove my move</button><button class="btn" id="repToStudy">Add line to a study</button><button class="btn" id="repToAnalysis">Open in Analysis</button></div>
+          <div class="row"><button class="btn" id="repRemove" hidden>Remove my move</button><button class="btn" id="repBuild" title="Draft a line from this position with Masters games">Build from here</button><button class="btn" id="repToStudy">Add line to a study</button><button class="btn" id="repToAnalysis">Open in Analysis</button></div>
         </div>
         <div class="card">
           <div class="card-h"><h2>Strong &amp; weak points</h2></div>
@@ -3255,12 +3269,27 @@ textarea.inp { resize: vertical; font-size: 14px; }
     // inside claude.ai the page talks to Lichess through the viewer's connector; on its own website it signs in with Lichess directly
     const IN_CLAUDE = !!(window.claude && typeof window.claude.use === "function");
     const K_AUTH = "pcl-lichess-auth", K_OAUTH = "pcl-oauth", CLIENT_ID = "fox-chess-lab", LICHESS = "https://lichess.org", EXPLORER = "https://explorer.lichess.org";
+    // a Map of lookups; when one is dropped without an answer, anything waiting for it (the builder) is told why
+    function waitableJobs() {
+      const m = new Map(), del = m.delete.bind(m);
+      m.delete = (k) => {
+        const j = m.get(k);
+        if (j && j.waiters && !j.settled) {
+          j.settled = true;
+          const f = X.failed.get(k), why = (f && f.text) || (X.fatal && X.fatal.text) || "This position couldn't be loaded.";
+          j.waiters.forEach(w => w.reject(new Error(why)));
+        }
+        return del(k);
+      };
+      return m;
+    }
+    function settle(j, e) { if (j && j.waiters && !j.settled) { j.settled = true; j.waiters.forEach(w => w.resolve(e)); } }
     const X = {
       mcp: null, mcpState: "loading",
       set: { source: "masters", ratings: [1600, 1800, 2000, 2200, 2500], speeds: ["blitz", "rapid", "classical"], on: true },
       token: "", tokenSaved: false, editToken: false, fatal: null, note: "",
       auth: null, authMsg: "", snap: { state: "none", man: null, shards: new Map(), loading: new Set(), memo: new Map() },
-      cache: new Map(), failed: new Map(), jobs: new Map(), active: 0, firstOk: false, dirty: new Set(),
+      cache: new Map(), failed: new Map(), jobs: waitableJobs(), active: 0, firstOk: false, dirty: new Set(),
       pausedUntil: 0, unavailable: 0, ver: 0, listeners: [], emitT: 0, saveT: 0, pumpT: 0,
     };
     const ls = {
@@ -3373,6 +3402,26 @@ textarea.inp { resize: vertical; font-size: 14px; }
       schedulePump();
       return e || null;
     }
+    // Masters numbers for one position, whatever database the page is showing (used by the repertoire builder)
+    function canMasters() {
+      if (X.fatal) return false;
+      if (!IN_CLAUDE) return !!X.auth;
+      return !!X.token && X.mcpState === "ready";
+    }
+    function masters(fen) {
+      const k = "m|" + fen.split(" ").slice(0, 4).join(" ");
+      const hit = X.cache.get(k);
+      if (hit) return Promise.resolve(hit);
+      if (!canMasters()) return Promise.reject(new Error(IN_CLAUDE ? "Add your Lichess token to use Masters numbers." : "Sign in with Lichess to use Masters numbers."));
+      return new Promise((resolve, reject) => {
+        let j = X.jobs.get(k);
+        if (!j) { j = { key: k, fen, prio: 1e7, owners: new Set(["builder"]), src: "masters", ratings: [], speeds: [], tries: 0, running: false, notBefore: 0, idb: IDB.state === "off" ? "done" : "check" }; X.jobs.set(k, j); }
+        j.forced = true; j.prio = Math.max(j.prio, 1e7); j.owners.add("builder");
+        (j.waiters || (j.waiters = [])).push({ resolve, reject });
+        X.failed.delete(k);
+        schedulePump();
+      });
+    }
     // forget queued requests from one part of the page (the rest are kept)
     function clear(owner) {
       for (const [k, j] of X.jobs) {
@@ -3385,7 +3434,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
     // ---- fetching
     function schedulePump(ms) { clearTimeout(X.pumpT); X.pumpT = setTimeout(pump, ms || 0); }
     function pump() {
-      if (mode() !== "live") return;
+      const live = mode() === "live";
+      if (!live && !(canMasters() && [...X.jobs.values()].some(j => j.forced))) return;
       if (IDB.state === "opening") return;          // idbOpen() pumps again when it's ready
       const now = Date.now();
       let check = false;
@@ -3397,7 +3447,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       while (X.active < lim) {
         let best = null;
         for (const j of X.jobs.values()) {
-          if (j.running || j.idb === "check" || j.idb === "checking") continue;
+          if (j.running || j.idb === "check" || j.idb === "checking" || (!live && !j.forced)) continue;
           if (j.notBefore > now) { soonest = Math.min(soonest, j.notBefore); continue; }
           if (!best || j.prio > best.prio) best = j;
         }
@@ -3457,7 +3507,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         if (!p) throw { code: "bad_payload", message: "The connector's answer wasn't in the expected format." };
         const e = normalize(j.fen, p);
         if (res && res.cache && res.cache.storedAt) e.t = res.cache.storedAt;
-        X.cache.delete(j.key); X.cache.set(j.key, e); X.dirty.add(j.key);
+        X.cache.delete(j.key); X.cache.set(j.key, e); X.dirty.add(j.key); settle(j, e);
         X.failed.delete(j.key); X.jobs.delete(j.key);
         X.firstOk = true; X.unavailable = 0; X.note = "";
         saveCacheSoon();
@@ -3742,7 +3792,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           let e = null;
           try { if (r.result) e = unpack(r.result); } catch (err) { e = null; }
           if (e && now - e.t < maxAge(j.key) && X.jobs.get(j.key) === j && !j.running) {
-            X.cache.set(j.key, e); X.failed.delete(j.key); X.jobs.delete(j.key); hits++;
+            X.cache.set(j.key, e); X.failed.delete(j.key); settle(j, e); X.jobs.delete(j.key); hits++;
           } else j.idb = "done";
         };
       }
@@ -3888,7 +3938,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
 
     return {
-      init, mode, sig, stamp, peek, get, clear, onChange, label, short, renderBars, inClaude: IN_CLAUDE,
+      init, mode, sig, stamp, peek, get, clear, onChange, label, short, renderBars, inClaude: IN_CLAUDE, masters, canMasters,
       signIn, hasScope, lichess, get user() { return X.auth ? X.auth.user : ""; },
       get settings() { return X.set; },
       setOn(v) { X.set.on = v; ls.set(K_SET, JSON.stringify(X.set)); changed(); },
@@ -4267,9 +4317,10 @@ textarea.inp { resize: vertical; font-size: 14px; }
       if (!b.gaps.length) { el.innerHTML = '<p class="why">No gaps in the lines shown. Increase the depth or lower the minimum share to look further.</p>'; return; }
       el.innerHTML = b.gaps.slice(0, 8).map(g => {
         const nm = OData.nameAlong(g.path);
-        return '<button class="gapitem" data-path="' + esc(g.path.join(" ")) + '"><span class="gp">' + pct(g.reach) + '</span><span class="gl2"><b>' + esc(gapLabel(g)) + "</b>" + (nm ? '<span class="why">' + esc(nm.name) + "</span>" : "") + "</span></button>";
+        return '<div class="gaprow"><button class="gapitem" data-path="' + esc(g.path.join(" ")) + '"><span class="gp">' + pct(g.reach) + '</span><span class="gl2"><b>' + esc(gapLabel(g)) + "</b>" + (nm ? '<span class="why">' + esc(nm.name) + "</span>" : "") + '</span></button><button class="btn sm gapbuild" data-build="' + esc(g.path.join(" ")) + '" title="Draft a line from here with Masters games">Build</button></div>';
       }).join("");
       el.querySelectorAll(".gapitem").forEach(bt => bt.onclick = () => { R.sel = bt.dataset.path ? bt.dataset.path.split(" ") : []; R.scrollToSel = true; render(); });
+      el.querySelectorAll("[data-build]").forEach(bt => bt.onclick = () => builderDialog(bt.dataset.build ? bt.dataset.build.split(" ") : []));
     }
 
     function renderPanel() {
@@ -5004,6 +5055,206 @@ textarea.inp { resize: vertical; font-size: 14px; }
         (c2) => { $("imDone").onclick = c2; });
     }
 
+    // ---- repertoire builder: drafts a line from a gap using Masters games, for you to review and keep
+    //   your move: the one that has scored best for your side in master games (small samples are pulled toward the
+    //   position's average, so a move won in 3 of 3 games doesn't beat one that scored well in 300)
+    //   their replies: every move played in at least 10% of master games here
+    //   it goes about 5 of your moves deep and asks Lichess about at most 150 positions, most likely positions first
+    const BUILD = { share: 0.10, mine: 5, budget: 150, minGames: 20, minMove: 5, shrink: 20, workers: 2 };
+    const B = { run: 0, root: null, node: null, board: null, s: null, looked: 0, busy: false, stopped: false, note: "" };
+    const myScore = (color, w, d, b) => { const n = w + d + b; return n ? ((color === "w" ? w : b) + d / 2) / n : null; };
+    function builderDialog(startPath) {
+      const s = sec();
+      if (!document.getElementById("bldBg")) {
+        const bg = document.createElement("div");
+        bg.className = "sheet-bg"; bg.id = "bldBg"; bg.hidden = true;
+        bg.innerHTML = '<div class="sheet bld" role="dialog" aria-labelledby="bldH"><div class="sheet-h"><h2 id="bldH">Repertoire builder</h2><button class="btn" id="bldClose">Close</button></div>' +
+          '<p class="why" id="bldIntro"></p><div class="sheet-grid"><div class="col"><div class="mb-wrap"><div id="bldBoard"></div></div>' +
+          '<div class="row nav"><button class="btn icon" id="bldFirst" aria-label="Start of the draft">|&lt;</button><button class="btn icon" id="bldPrev" aria-label="Previous move">&lt;</button><button class="btn icon" id="bldNext" aria-label="Next move">&gt;</button></div>' +
+          '<p class="rep-pos" id="bldPos"></p><p class="why" id="bldInfo"></p></div>' +
+          '<div class="col"><div class="progress"><div id="bldProg"></div></div><p class="meta" id="bldStatus" role="status"></p>' +
+          '<div class="tmoves soltree" id="bldTree"></div><div class="row"><button class="btn sm" id="bldCut">Remove the selected move and what follows</button></div>' +
+          '<div class="row bld-act"><button class="btn primary" id="bldAdd">Add to my repertoire</button><button class="btn" id="bldStudy">Save as a study</button><button class="btn" id="bldStop">Stop</button></div><p class="msg" id="bldMsg" role="status"></p></div></div></div>';
+        document.body.appendChild(bg);
+        B.board = new MiniBoard($("bldBoard"), { onMove: () => {} });
+        $("bldClose").onclick = closeBuilder;
+        bg.onpointerdown = (e) => { if (e.target === bg) closeBuilder(); };
+        $("bldFirst").onclick = () => bGo(B.root);
+        $("bldPrev").onclick = () => bGo(B.node && B.node.parent);
+        $("bldNext").onclick = () => bGo(B.node && B.node.children[0]);
+        $("bldStop").onclick = () => { B.stopped = true; B.note = "Stopped. You can still keep what was built."; bPaint(); };
+        $("bldCut").onclick = () => {
+          const n = B.node;
+          if (!n || !n.parent) return;
+          n.parent.children = n.parent.children.filter(c => c !== n);
+          bGo(n.parent);
+        };
+        $("bldAdd").onclick = bAdd;
+        $("bldStudy").onclick = bStudy;
+        document.addEventListener("keydown", (e) => {
+          if ($("bldBg").hidden || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || "")) return;
+          if (e.key === "ArrowLeft") { bGo(B.node && B.node.parent); e.preventDefault(); }
+          else if (e.key === "ArrowRight") { bGo(B.node && B.node.children[0]); e.preventDefault(); }
+          else if (e.key === "Escape") closeBuilder();
+        });
+      }
+      const startFen = fenAfter(startPath);
+      B.s = s; B.run++; B.looked = 0; B.stopped = false; B.note = ""; B.busy = true;
+      B.root = { id: "b0", san: null, fen: startFen, children: [], comment: "", parent: null, path: startPath.slice(), kind: "start" };
+      B.node = B.root;
+      $("bldMsg").textContent = ""; $("bldMsg").className = "msg";
+      $("bldIntro").innerHTML = "Drafting " + (s.color === "w" ? "White" : "Black") + " moves from <b>" + esc(lineText(startPath) || "the starting position") + "</b> using Masters games: for each of your moves, the one that has scored best for you; for the opponent, every reply played in at least 10% of games. It goes about " + BUILD.mine + " of your moves deep. Use it as a direction to research, then keep what you like.";
+      $("bldBg").hidden = false;
+      bGo(B.root);
+      if (!Explorer.canMasters()) {
+        B.busy = false;
+        B.note = Explorer.inClaude ? "The builder needs Masters numbers: add your Lichess token in the explorer settings first." : "The builder needs Masters numbers, which need you to sign in with Lichess.";
+        bPaint();
+        if (!Explorer.inClaude) $("bldStatus").insertAdjacentHTML("beforeend", ' <button class="btn sm primary" id="bldSign">Sign in with Lichess</button>');
+        if ($("bldSign")) $("bldSign").onclick = () => Explorer.signIn();
+        return;
+      }
+      buildDraft(B.run);
+    }
+    function closeBuilder() { B.stopped = true; B.run++; $("bldBg").hidden = true; }
+    async function buildDraft(run) {
+      const s = B.s, queue = [{ node: B.root, reach: 1, mine: 0 }];
+      let inflight = 0, failures = 0;
+      const alive = () => run === B.run && !B.stopped;
+      const expand = (it, e) => {
+        const n = it.node, turn = n.fen.split(" ")[1], total = e.total || 0;
+        n.games = total;
+        if (total < BUILD.minGames) { n.end = total ? "only " + total + " master " + (total === 1 ? "game" : "games") + " here" : "no master games here"; return; }
+        if (turn === s.color) {
+          const par = myScore(s.color, e.w, e.d, e.b);
+          const own = s.pos[posKey(n.fen)];
+          let pick = null;
+          for (const m of e.moves) {
+            if (m.n < BUILD.minMove && !(own && own.m === m.san)) continue;
+            const raw = myScore(s.color, m.w, m.d, m.b), adj = (raw * m.n + (par == null ? 0.5 : par) * BUILD.shrink) / (m.n + BUILD.shrink);
+            const c = { m, raw, adj };
+            if (own && own.m === m.san) { pick = c; pick.own = true; break; }   // you already play a move here: follow it
+            if (!pick || adj > pick.adj + 1e-9 || (Math.abs(adj - pick.adj) < 1e-9 && m.n > pick.m.n)) pick = c;
+          }
+          if (!pick) { n.end = "no move with enough master games"; return; }
+          const sp = step(n.fen, pick.m.san);
+          if (!sp) return;
+          const c = { id: "b" + uid8(), san: sp.mv.san, fen: sp.fen, children: [], comment: "", parent: n, from: sp.mv.from, to: sp.mv.to, path: n.path.concat(sp.mv.san), kind: "mine", n: pick.m.n, share: pick.m.n / total, score: pick.raw, own: !!pick.own };
+          n.children.push(c);
+          if (overAt(c.fen)) { c.end = "game over"; return; }
+          if (it.mine + 1 >= BUILD.mine) { c.end = "depth reached"; return; }
+          queue.push({ node: c, reach: it.reach, mine: it.mine + 1 });
+        } else {
+          let reps = e.moves.filter(m => m.n / total >= BUILD.share);
+          if (!reps.length && e.moves.length) reps = [e.moves[0]];
+          for (const m of reps) {
+            const sp = step(n.fen, m.san);
+            if (!sp) continue;
+            const c = { id: "b" + uid8(), san: sp.mv.san, fen: sp.fen, children: [], comment: "", parent: n, from: sp.mv.from, to: sp.mv.to, path: n.path.concat(sp.mv.san), kind: "opp", n: m.n, share: m.n / total, score: myScore(s.color, m.w, m.d, m.b) };
+            n.children.push(c);
+            if (overAt(c.fen)) { c.end = "game over"; continue; }
+            queue.push({ node: c, reach: it.reach * (m.n / total), mine: it.mine });
+          }
+        }
+      };
+      const worker = async () => {
+        while (alive()) {
+          if (!queue.length) { if (!inflight) return; await sleep(60); continue; }
+          queue.sort((a, b) => b.reach - a.reach);
+          const it = queue.shift();
+          if (B.looked >= BUILD.budget) { it.node.end = "stopped here to keep the draft a manageable size"; continue; }
+          B.looked++; inflight++;
+          let e = null;
+          try { e = await Explorer.masters(it.node.fen); } catch (err) { failures++; it.node.end = "couldn't load: " + err.message; if (/sign in|token/i.test(err.message)) B.stopped = true; }
+          inflight--;
+          if (!alive()) return;
+          if (e) expand(it, e);
+          bPaint();
+        }
+      };
+      bPaint();
+      await Promise.all(Array.from({ length: BUILD.workers }, worker));
+      if (run !== B.run) return;
+      B.busy = false;
+      queue.forEach(it => { if (!it.node.end) it.node.end = B.stopped ? "stopped" : "stopped here to keep the draft a manageable size"; });
+      if (!B.note) B.note = "Done: " + B.looked + " positions looked up" + (failures ? ", " + failures + " couldn't load" : "") + ". Review the draft, remove anything you don't want, then keep it.";
+      bPaint();
+    }
+    function bNodes(n, out) { out = out || []; out.push(n); n.children.forEach(c => bNodes(c, out)); return out; }
+    function bGo(n) {
+      if (!n) return;
+      B.node = n;
+      const last = n.from ? { from: n.from, to: n.to } : null;
+      B.board.set(n.fen, { flip: B.s.color === "b", last, arrows: [] });
+      bPaint();
+    }
+    function bPaint() {
+      if (!B.root || $("bldBg").hidden) return;
+      const mine = bNodes(B.root).filter(n => n.kind === "mine");
+      $("bldProg").style.width = Math.min(100, Math.round(100 * B.looked / BUILD.budget)) + "%";
+      $("bldStatus").textContent = B.note || (B.busy ? "Looking up Masters games… " + B.looked + " positions so far (at most " + BUILD.budget + ")." : "");
+      const moveLabel = (n, force) => { const p = n.parent.fen.split(" "); return p[1] === "w" ? p[5] + "." + n.san : (force ? p[5] + "…" + n.san : n.san); };
+      const mv = (n, force) => '<button class="tm' + (n === B.node ? " cur" : "") + (n.kind === "opp" ? " opp" : "") + (n.own ? " own" : "") + '" data-b="' + n.id + '">' + esc(moveLabel(n, force)) + "</button>";
+      const line = (node, force) => {
+        let out = "", n = node, f = force;
+        while (n.children.length) {
+          const main = n.children[0];
+          out += mv(main, f);
+          if (n.children.length > 1) out += '<div class="tvars">' + n.children.slice(1).map(v => '<div class="tvar">' + mv(v, true) + line(v, false) + "</div>").join("") + "</div>";
+          f = n.children.length > 1;
+          n = main;
+        }
+        return out;
+      };
+      const tree = $("bldTree");
+      tree.innerHTML = line(B.root, true) || '<p class="why">' + (B.busy ? "Starting…" : "Nothing to suggest from here.") + "</p>";
+      const index = new Map(bNodes(B.root).map(n => [n.id, n]));
+      tree.querySelectorAll("[data-b]").forEach(b => b.onclick = () => bGo(index.get(b.dataset.b)));
+      const n = B.node;
+      $("bldPos").textContent = n.path.length ? lineText(n.path) : "Starting position";
+      const pctS = (x) => Math.round(x * 100) + "%";
+      $("bldInfo").innerHTML = n.kind === "mine" ? "<b>Your move " + esc(n.san) + "</b>: scored " + pctS(n.score) + " for you in " + n.n.toLocaleString() + " master games (chosen in " + pctS(n.share) + " of games here)" + (n.own ? ". You already play this." : ".") + (n.end ? " The draft stops here: " + esc(n.end) + "." : "")
+        : n.kind === "opp" ? "<b>Their reply " + esc(n.san) + "</b>: played in " + pctS(n.share) + " of " + (n.parent.games || 0).toLocaleString() + " master games here." + (n.end ? " The draft stops here: " + esc(n.end) + "." : "")
+        : (n.games ? n.games.toLocaleString() + " master games reached this position." : "") + (n.end ? " " + esc(n.end[0].toUpperCase() + n.end.slice(1)) + "." : "");
+      $("bldCut").disabled = !n.parent;
+      $("bldStop").hidden = !B.busy;
+      $("bldAdd").disabled = !mine.length || B.busy;
+      $("bldStudy").disabled = !mine.length || B.busy;
+      const cur = tree.querySelector(".tm.cur");
+      if (cur) { const top = cur.offsetTop; if (top < tree.scrollTop || top > tree.scrollTop + tree.clientHeight - 30) tree.scrollTop = top - 40; }
+    }
+    // keep the draft: your moves go into the open section; where you already have a different move, yours stays
+    function bAdd() {
+      const s = B.s;
+      let added = 0, kept = 0;
+      bNodes(B.root).filter(n => n.kind === "mine").forEach(n => {
+        const key = posKey(n.parent.fen), old = s.pos[key];
+        if (!old) { s.pos[key] = { m: n.san, p: n.parent.path.join(" "), n: "" }; added++; }
+        else if (old.m !== n.san) kept++;
+      });
+      if (added) touch(s);
+      R.sel = B.root.path.slice(); R.scrollToSel = true;
+      render();
+      $("bldMsg").className = "msg ok";
+      $("bldMsg").textContent = "Added " + added + (added === 1 ? " move" : " moves") + " to “" + s.name + "”" + (kept ? "; kept your own move in " + kept + (kept === 1 ? " position" : " positions") : "") + ".";
+    }
+    function bStudy() {
+      const s = B.s;
+      // a chapter from the starting position: the moves up to the gap, then the draft with every reply as a side line
+      const root = { san: null, fen: START_FEN, children: [], comment: "", parent: null };
+      let at = root;
+      for (const san of B.root.path) { const sp = step(at.fen, san); if (!sp) break; const c = { san: sp.mv.san, fen: sp.fen, children: [], comment: "", parent: at }; at.children.push(c); at = c; }
+      const copy = (src, dst) => src.children.forEach(ch => {
+        const c = { san: ch.san, fen: ch.fen, children: [], comment: ch.kind === "mine" ? "Scored " + Math.round(ch.score * 100) + "% in " + ch.n + " master games" : "", parent: dst };
+        dst.children.push(c); copy(ch, c);
+      });
+      copy(B.root, at);
+      const name = "Builder: " + (lineText(B.root.path) || "start");
+      Stu.addStudyCopy({ name, chapters: [{ type: "line", name: s.name + " · " + (lineText(B.root.path) || "start"), fen: START_FEN, orient: s.color, pgn: treeToPGN(root, null) }] });
+      $("bldMsg").className = "msg ok";
+      $("bldMsg").textContent = "Saved as the study “" + name + "” in Studies.";
+    }
+
     // ---- export: your repertoire as PGN, one chapter per section, White and Black separately
     function sectionTree(s) {
       const root = { san: null, fen: START_FEN, children: [], comment: "", parent: null };
@@ -5131,6 +5382,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         const s = sec(), key = posKey(fenAfter(R.sel));
         if (s.pos[key]) { s.pos[key].n = e.target.value; Store.saveSoon("rep-" + s.id, () => docOf(s), 900); }
       };
+      $("repBuild").onclick = () => builderDialog((R.sel || sec().root).slice());
       $("repToAnalysis").onclick = () => { const p = R.sel || []; loadGame(START_FEN, p.slice(), {}, p.length); showTab("analysis"); };
       $("repToStudy").onclick = () => {
         const s = sec(), p = R.sel || [], nm = OData.nameAlong(p);
