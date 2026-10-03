@@ -523,6 +523,25 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .unlock b { color: var(--ink); }
 .rv-ctl { align-items: center; flex-wrap: nowrap; } .rv-ctl select { width: auto; padding: 6px 8px; }
 
+/* ---------- studies library + difficult exercises ---------- */
+.scard { text-align: left; cursor: pointer; color: var(--ink); font: inherit; }
+.scard:hover { border-color: var(--accent); }
+.stu-top { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-bottom: 14px; }
+.stu-top .title-inp { flex: 1 1 240px; }
+.stu-layout { grid-template-columns: 230px minmax(0, 1fr); }
+.cmode { margin-bottom: 4px; }
+.cmode button { font-size: 13px; }
+.mode-help { font-size: 12.5px; margin: 4px 0 8px; }
+.grade { margin: 0 0 6px; }
+.grade b { font: 700 28px var(--font-body); color: var(--accent); }
+.gl-h { font-weight: 700; font-size: 13px; margin: 10px 0 2px; }
+.gl { margin: 0; padding-left: 18px; font: 13px/1.5 var(--font-mono); }
+.rep-folders { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 12px; }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fold { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 99px; padding: 5px 12px; font: 600 13.5px var(--font-body); cursor: pointer; }
+.fold[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.fold.add { border-style: dashed; color: var(--muted); font-weight: 400; }
+
 </style>
 
 <div class="app">
@@ -650,6 +669,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
   </section>
 
   <section id="tab-repertoire" hidden>
+    <div class="rep-folders" id="repFolders"></div>
     <div class="rep-sections" id="repSections"></div>
     <div class="rep-main">
       <div class="card rep-treecard">
@@ -668,7 +688,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Their reply you've prepared for</span><span><i class="lg gap"></i>Gap: popular reply with no answer yet</span><span><i class="lg fweak"></i>Weak point</span><span><i class="lg fstrong"></i>Strong point</span><span class="why">Branch thickness = how often you'll meet the line</span>
         </div>
         <div class="rep-tree" id="repTree"></div>
-        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repShare" hidden>Share section</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
+        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repAsStudy" title="Turn this section into a study chapter, with all its lines and notes">Open as study</button><button class="btn" id="repShare" hidden>Share section</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
       </div>
       <aside class="rep-side">
         <div class="card">
@@ -695,24 +715,36 @@ textarea.inp { resize: vertical; font-size: 14px; }
   </section>
 
   <section id="tab-studies" hidden>
-    <div class="stu-layout">
-      <aside class="card stu-list">
-        <div class="card-h"><h2>Studies</h2><button class="btn sm primary" id="stuNew">+ New study</button></div>
-        <div id="stuList"></div>
-      </aside>
-      <div class="card stu-empty" id="stuEmpty">
-        <h2 class="big-h">Studies</h2>
+    <div id="stuLib">
+      <div class="card comm-head">
+        <div class="card-h"><h2>Your studies</h2><div class="row"><button class="btn sm" id="stuNewCalc">+ Calculation exercise</button><button class="btn sm primary" id="stuNew">+ New study</button></div></div>
+        <p class="why">Opening lines with side lines and comments, and calculation exercises. Open one to work on it.</p>
+        <div class="row comm-ctl"><input id="stuSearch" class="inp" type="search" placeholder="Search your studies and chapters" autocomplete="off"></div>
+      </div>
+      <div class="card stu-empty" id="stuLibEmpty" hidden>
+        <h2 class="big-h">No studies yet</h2>
         <p>Keep your opening lines with side lines and comments, or train calculation: set up a position from a screenshot, work out the line without the engine, then check it.</p>
         <div class="row"><button class="btn primary" id="stuStart1">Create a study</button><button class="btn" id="stuStart2">New calculation exercise</button></div>
         <p class="why stu-demo" id="stuDemo" hidden>Not sure where to start? <a href="?demo#studies">Look at the example studies</a>, including two calculation exercises from famous games.</p>
       </div>
+      <div class="comm-grid" id="stuGrid"></div>
+    </div>
+    <div id="stuView" hidden>
+      <div class="stu-top"><button class="btn sm" id="stuBack">&larr; All studies</button><input id="stuStudyName" class="inp title-inp" aria-label="Study name"><button class="btn sm" id="stuShare" hidden>Share</button></div>
+    <div class="stu-layout">
+      <aside class="card stu-list">
+        <div class="card-h"><h2>Chapters</h2></div>
+        <div id="stuList"></div>
+      </aside>
+      <div class="card stu-empty" id="stuEmpty">
+        <h2 class="big-h">This study has no chapters yet</h2>
+        <p>Add a line chapter for opening moves, or a calculation exercise from a screenshot or a position.</p>
+      </div>
       <div class="stu-main" id="stuMain" hidden>
         <div class="stu-boardcol">
           <div class="stu-titles">
-            <input id="stuStudyName" class="inp title-inp" aria-label="Study name">
             <input id="stuChapName" class="inp chap-inp" aria-label="Chapter name">
             <span class="meta" id="stuType"></span>
-            <button class="btn sm" id="stuShare" hidden>Share</button>
           </div>
           <div class="mb-wrap"><div class="evalbar" id="stuEval" hidden><div class="white"></div><span class="num top"></span><span class="num bottom"></span></div><div id="stuBoard"></div></div>
           <div class="controls">
@@ -729,6 +761,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
         <div class="stu-side">
           <div class="card calc-card" id="stuCalc" hidden>
             <div class="card-h"><h2>Calculation</h2><span class="timer" id="stuTimer" title="Time since you started">0:00</span></div>
+            <div class="seg cmode" role="group" aria-label="Exercise type"><button data-cmode="puzzle" aria-pressed="true">Puzzle · one solution</button><button data-cmode="deep" aria-pressed="false">Difficult · multiple lines</button></div>
+            <p class="why mode-help" id="stuModeHelp"></p>
             <textarea id="stuPrompt" class="inp" rows="2" aria-label="Exercise description"></textarea>
             <p class="meta" id="stuLineInfo"></p>
             <p class="unlock" id="stuUnlock"></p>
@@ -747,6 +781,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           </div>
         </div>
       </div>
+    </div>
     </div>
     <input type="file" id="calcFile" accept="image/*" hidden>
   </section>
@@ -3732,8 +3767,26 @@ textarea.inp { resize: vertical; font-size: 14px; }
     let board = null, engineSeq = 0;
     const $ = (id) => document.getElementById(id);
 
-    function sec() { return R.sections.find(s => s.id === R.cur) || R.sections[0]; }
-    function docOf(s) { return { kind: "rep", id: s.id, name: s.name, color: s.color, root: s.root, skip: s.skip || [], pos: s.pos, order: s.order || 0, updated: Date.now() }; }
+    // ---- folders: separate repertoires (e.g. your main one, a 1.d4 experiment, one you imported to learn)
+    const MAIN = "main";
+    function fsec() { return R.sections.filter(s => (s.folder || MAIN) === R.folder); }
+    function folderOf(id) { return R.folders.find(f => f.id === id) || R.folders[0]; }
+    function standardSections(folder, whiteRoot) {
+      const tag = folder === MAIN ? "" : "s" + uid8() + "-";
+      return DEFAULTS.map((d, i) => Object.assign({}, d, { id: folder === MAIN ? d.id : tag + d.id, folder, pos: {}, order: i },
+        d.id === "white" && whiteRoot && whiteRoot.length ? { root: whiteRoot.slice(), name: "White: " + lineText(whiteRoot) } : {}));
+    }
+    function ensureFolderHasSections(fid) { if (!R.sections.some(s => (s.folder || MAIN) === fid)) R.sections = R.sections.concat(standardSections(fid)); }
+    function saveFolders() { Store.saveSoon("rep-folders", () => ({ kind: "repfolders", folders: R.folders, cur: R.folder, updated: Date.now() })); }
+    function newFolder(name, whiteRoot, standard) {
+      const f = { id: "f" + uid8(), name: name || "New repertoire" };
+      R.folders.push(f); R.folder = f.id;
+      R.sections = R.sections.concat(standard === false ? [] : standardSections(f.id, whiteRoot));
+      saveFolders();
+      return f;
+    }
+    function sec() { const l = fsec(); return l.find(s => s.id === R.cur) || l[0]; }
+    function docOf(s) { return { kind: "rep", id: s.id, name: s.name, color: s.color, root: s.root, skip: s.skip || [], pos: s.pos, order: s.order || 0, folder: s.folder || MAIN, updated: Date.now() }; }
     function touch(s) {
       s.ver = (s.ver || 0) + 1; R.cache.delete(s.id);
       s.saved = true;
@@ -3743,11 +3796,15 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
 
     function init(docs) {
-      const reps = docs.filter(d => d.kind === "rep");
-      if (reps.length) R.sections = reps.map(d => ({ id: d.id, name: d.name, color: d.color, root: d.root || [], skip: d.skip || [], pos: d.pos || {}, order: d.order || 0, saved: true }));
-      else R.sections = DEFAULTS.map((d, i) => Object.assign({}, d, { pos: {}, order: i }));
+      const reps = docs.filter(d => d.kind === "rep"), fd = docs.find(d => d.kind === "repfolders");
+      R.folders = fd && Array.isArray(fd.folders) && fd.folders.length ? fd.folders.map(f => ({ id: String(f.id), name: String(f.name || "Repertoire") })) : [{ id: MAIN, name: "My repertoire" }];
+      if (reps.length) R.sections = reps.map(d => ({ id: d.id, name: d.name, color: d.color, root: d.root || [], skip: d.skip || [], pos: d.pos || {}, order: d.order || 0, folder: d.folder || MAIN, saved: true }));
+      else R.sections = standardSections(MAIN);
+      R.sections.forEach(x => { if (!R.folders.some(f => f.id === x.folder)) R.folders.push({ id: x.folder, name: x.folder === MAIN ? "My repertoire" : "Repertoire" }); });
+      R.folder = fd && R.folders.some(f => f.id === fd.cur) ? fd.cur : R.folders[0].id;
+      R.folders.forEach(f => ensureFolderHasSections(f.id));
       R.sections.sort((a, b) => (a.order || 0) - (b.order || 0));
-      if (!R.sections.find(s => s.id === R.cur)) R.cur = R.sections[0].id;
+      if (!fsec().find(s => s.id === R.cur)) R.cur = fsec()[0].id;
       R.loaded = true;
     }
 
@@ -3861,10 +3918,19 @@ textarea.inp { resize: vertical; font-size: 14px; }
       renderGaps();
       renderInsights();
     }
+    function renderFolders() {
+      const el = $("repFolders");
+      el.innerHTML = '<span class="mini-l">Repertoire</span><div class="fchips">' + R.folders.map(f => '<button class="fold" data-folder="' + esc(f.id) + '" aria-pressed="' + (f.id === R.folder) + '">' + esc(f.name) + "</button>").join("") +
+        '<button class="fold add" id="repNewFolder">+ New repertoire</button></div><button class="linkbtn" id="repFolderMenu">Rename or delete</button>';
+      el.querySelectorAll("[data-folder]").forEach(b => b.onclick = () => { if (R.folder === b.dataset.folder) return; R.folder = b.dataset.folder; R.cur = fsec()[0].id; R.sel = null; saveFolders(); render(); });
+      $("repNewFolder").onclick = newFolderDialog;
+      $("repFolderMenu").onclick = folderMenuDialog;
+    }
     function renderSections() {
+      renderFolders();
       const el = $("repSections");
       let h = "";
-      for (const s of R.sections) {
+      for (const s of fsec()) {
         const b = build(s);
         const big = b.gaps[0];
         h += '<button class="rsec' + (s.id === R.cur ? " on" : "") + '" data-sec="' + s.id + '">' +
@@ -4074,7 +4140,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
               if (p.bad || !p.moves) { $("nsMsg").textContent = "Couldn't read those moves. Write them like 1.e4 c5 2.Nf3"; $("nsMsg").className = "msg err"; return; }
               root = mainline(p.root).map(n => n.san);
             }
-            const s = { id: "s" + uid8(), name, color, root, skip: [], pos: {}, order: R.sections.length };
+            const s = { id: "s" + uid8(), name, color, root, skip: [], pos: {}, order: fsec().length, folder: R.folder };
             R.sections.push(s); R.cur = s.id; R.sel = null;
             touch(s); close(); render();
           };
@@ -4092,8 +4158,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
           $("dlOk").onclick = () => {
             R.sections = R.sections.filter(x => x !== s);
             Store.remove("rep-" + s.id);
-            if (!R.sections.length) { R.sections = DEFAULTS.map((d, i) => Object.assign({}, d, { pos: {}, order: i })); }
-            R.cur = R.sections[0].id; R.sel = null; close(); render();
+            ensureFolderHasSections(R.folder);
+            R.cur = fsec()[0].id; R.sel = null; close(); render();
           };
         });
     }
@@ -4212,14 +4278,14 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function routeFor(color, path, fixed) {
       if (fixed) return fixed.color === color ? fixed : null;
       let best = null;
-      for (const s of R.sections) {
+      for (const s of fsec()) {
         if (s.color !== color || s.root.length > path.length) continue;
         if (!s.root.every((m, i) => path[i] === m)) continue;
         if (path.length > s.root.length && (s.skip || []).includes(path[s.root.length])) continue;
         if (!best || s.root.length > best.root.length) best = s;
       }
       if (!best) {
-        best = { id: "s" + uid8(), name: "Imported as " + (color === "w" ? "White" : "Black"), color, root: [], skip: [], pos: {}, order: R.sections.length };
+        best = { id: "s" + uid8(), name: "Imported as " + (color === "w" ? "White" : "Black"), color, root: [], skip: [], pos: {}, order: fsec().length, folder: R.folder };
         R.sections.push(best);
       }
       return best;
@@ -4274,14 +4340,14 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function routeSoft(color, path, fixed, made) {
       if (fixed) return fixed.color === color ? fixed : null;
       let best = null;
-      for (const s of R.sections) {
+      for (const s of fsec()) {
         if (s.color !== color || s.root.length > path.length) continue;
         if (!s.root.every((m, i) => path[i] === m)) continue;
         if (path.length > s.root.length && (s.skip || []).includes(path[s.root.length])) continue;
         if (!best || s.root.length > best.root.length) best = s;
       }
       if (!best) {
-        if (!made[color]) made[color] = { id: "s" + uid8(), name: "Imported as " + (color === "w" ? "White" : "Black"), color, root: [], skip: [], pos: {}, order: R.sections.length + 1, isNew: true };
+        if (!made[color]) made[color] = { id: "s" + uid8(), name: "Imported as " + (color === "w" ? "White" : "Black"), color, root: [], skip: [], pos: {}, order: fsec().length + 1, folder: R.folder, isNew: true };
         best = made[color];
       }
       return best;
@@ -4370,12 +4436,13 @@ textarea.inp { resize: vertical; font-size: 14px; }
         return;
       }
       const user = Explorer.user;
-      const secOpts = R.sections.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
+      const secOpts = fsec().map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
       openDialog("Import studies from Lichess",
         '<p class="why">Step 1 of 3: pick the studies with your repertoire. You can import one or many at once; duplicate lines are merged.</p>' +
         '<input class="inp lisearch" id="liSearch" type="search" placeholder="Search your studies by name" autocomplete="off">' +
         '<div class="lilist" id="liList"><p class="why">Loading your studies…</p></div>' +
         '<div class="field"><label for="liUrl">Or paste links to other studies (one per line)</label><textarea id="liUrl" class="inp" rows="2" spellcheck="false" placeholder="https://lichess.org/study/abcd1234"></textarea></div>' +
+        '<div class="field"><label for="liFolder">Import into</label><select id="liFolder">' + R.folders.map(f => '<option value="' + esc(f.id) + '"' + (f.id === R.folder ? " selected" : "") + ">" + esc(f.name) + "</option>").join("") + '<option value="__new">A new repertoire (keeps it separate)</option></select></div>' +
         '<p class="msg" id="liMsg" role="status"></p><div class="row"><button class="btn primary" id="liOk">Next: check colours</button></div>',
         (close) => {
           let studies = [];
@@ -4427,6 +4494,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
               if (i % 5 === 4) await sleep(150);       // be gentle with Lichess
             }
             $("liOk").disabled = false;
+            if (chapters.length) {
+              const fv = $("liFolder").value;
+              if (fv === "__new") newFolder(chapters[0].study ? "Imported: " + chapters[0].study : "Imported repertoire");
+              else { R.folder = fv; saveFolders(); }
+              R.cur = fsec()[0].id; R.sel = null;
+            }
             if (!chapters.length) { msg.className = "msg err"; msg.textContent = (failed.length ? "Couldn't read: " + failed.join(", ") + ". " : "") + "No chapters with moves from the normal starting position."; return; }
             close();
             colourStep(chapters, { skipped, failed });
@@ -4436,7 +4509,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 
     // step 2: check which colour each chapter is for
     function colourStep(chapters, info) {
-      const secOpts = R.sections.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
+      const secOpts = fsec().map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("");
       const unsure = chapters.filter(c => !c.guess.sure).length;
       openDialog("Which side is each chapter for?",
         '<p class="why">Step 2 of 3: ' + chapters.length + " chapters read. I've guessed whether each one is your White or Black preparation" + (unsure ? "; <b>" + unsure + "</b> are marked <span class=\"chk\">check</span> because the signs were weak" : "") + ". Change any that are wrong, or skip ones that aren't repertoire.</p>" +
@@ -4458,7 +4531,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           document.querySelectorAll("[data-all]").forEach(b => b.onclick = () => { vis.forEach(c => c.colour = b.dataset.all); paint(); });
           paint();
           $("cfOk").onclick = () => {
-            const fixed = $("cfTo").value ? R.sections.find(x => x.id === $("cfTo").value) : null;
+            const fixed = $("cfTo").value ? fsec().find(x => x.id === $("cfTo").value) : null;
             const use = chapters.filter(c => c.colour !== "skip");
             if (!use.length) { $("cfMsg").className = "msg err"; $("cfMsg").textContent = "Every chapter is set to Skip."; return; }
             const col = collectCandidates(use, fixed);
@@ -4548,7 +4621,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
     }
     function exportDialog() {
-      const W = R.sections.filter(x => x.color === "w"), B = R.sections.filter(x => x.color === "b"), s = sec();
+      const W = fsec().filter(x => x.color === "w"), B = fsec().filter(x => x.color === "b"), s = sec();
       const n = (l) => l.reduce((a, x) => a + Object.keys(x.pos).length, 0);
       const verb = Explorer.inClaude ? "Copy" : "Download";
       openDialog("Export your repertoire",
@@ -4562,6 +4635,56 @@ textarea.inp { resize: vertical; font-size: 14px; }
           $("exS").onclick = () => saveText("fox-" + s.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pgn", repertoirePGN([s]));
         });
     }
+
+    // ---- folder dialogs
+    function newFolderDialog() {
+      openDialog("New repertoire",
+        '<p class="why">A separate repertoire with its own sections, so trying 1.d4, or learning someone else\'s lines, doesn\'t mix with your main one.</p>' +
+        '<div class="field"><label for="nfName">Name</label><input id="nfName" class="inp" placeholder="White with 1.d4"></div>' +
+        '<div class="field"><label for="nfWhite">Your first move as White (optional)</label><input id="nfWhite" class="inp" placeholder="1.d4"></div>' +
+        '<label class="checks"><input type="checkbox" id="nfStd" checked> Start with the usual sections (White, Black vs 1.e4, Black vs 1.d4, Black vs other moves)</label>' +
+        '<p class="msg" id="nfMsg"></p><div class="row"><button class="btn primary" id="nfOk">Create</button></div>',
+        (close) => {
+          $("nfOk").onclick = () => {
+            let root = [];
+            const t = $("nfWhite").value.trim();
+            if (t) {
+              const p = parsePGN(t), ml = mainline(p.root).map(n => n.san);
+              if (p.bad || !ml.length) { $("nfMsg").className = "msg err"; $("nfMsg").textContent = "Couldn't read that move. Write it like 1.d4"; return; }
+              root = ml.slice(0, 1);
+            }
+            const f = newFolder($("nfName").value.trim() || (root.length ? "White with 1." + root[0] : "New repertoire"), root, $("nfStd").checked);
+            ensureFolderHasSections(f.id);
+            R.cur = fsec()[0].id; R.sel = null;
+            close(); render();
+          };
+        });
+    }
+    function folderMenuDialog() {
+      const f = folderOf(R.folder), n = fsec().reduce((a, x) => a + Object.keys(x.pos).length, 0);
+      openDialog("Repertoire: " + f.name,
+        '<div class="field"><label for="rfName">Name</label><input id="rfName" class="inp" value="' + esc(f.name) + '"></div><div class="row"><button class="btn primary" id="rfSave">Rename</button></div>' +
+        (R.folders.length > 1 ? '<div class="bkrow"><span><b>Delete this repertoire</b><span class="why">Deletes its ' + fsec().length + " sections and " + n + ' prepared positions. It can\'t be undone.</span></span><button class="btn danger" id="rfDel">Delete</button></div>' : '<p class="why">This is your only repertoire, so it can\'t be deleted.</p>'),
+        (close) => {
+          $("rfSave").onclick = () => { f.name = $("rfName").value.trim() || f.name; saveFolders(); close(); render(); };
+          if ($("rfDel")) $("rfDel").onclick = () => {
+            fsec().forEach(x => Store.remove("rep-" + x.id));
+            R.sections = R.sections.filter(x => (x.folder || MAIN) !== f.id);
+            R.folders = R.folders.filter(x => x !== f);
+            R.folder = R.folders[0].id; R.cur = fsec()[0].id; R.sel = null;
+            saveFolders(); close(); render();
+          };
+        });
+    }
+    // one section at a time becomes a study chapter, with its whole tree and your notes as comments
+    function openAsStudy() {
+      const s = sec();
+      if (!Object.keys(s.pos).length) { flash("This section has no moves yet"); return; }
+      Stu.addStudyCopy({ name: folderOf(R.folder).name + ": " + s.name, chapters: [{ type: "line", name: s.name, fen: START_FEN, orient: s.color, pgn: treeToPGN(sectionTree(s), null) }] });
+      showTab("studies");
+      flash("Opened " + s.name + " as a study");
+    }
+
     // ---- wiring (once)
     function setup() {
       board = new MiniBoard($("repBoard"), { onMove: (mv) => onMove(mv) });
@@ -4574,6 +4697,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("repImport").onclick = importDialog;
       $("repLichess").onclick = lichessImportDialog;
       $("repExport").onclick = exportDialog;
+      $("repAsStudy").onclick = openAsStudy;
       $("repLichess").hidden = Explorer.inClaude;
       $("repEngineBtn").onclick = () => { R.engine = !R.engine; if (!R.engine) { engineSeq++; board.setArrows([]); if (live) live.stop(); } renderPanel(); };
       $("repBack").onclick = () => { const s = sec(); if (R.sel && R.sel.length > s.root.length) { R.sel = R.sel.slice(0, -1); R.scrollToSel = true; render(); } };
@@ -4600,21 +4724,24 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function hide() { engineSeq++; }
     // a copy of a shared or community repertoire section, rebuilt from its PGN
-    function addSectionCopy(data) {
+    function addSectionCopy(data, target) {
       const color = data.color === "b" ? "b" : "w";
+      if (target === "__new" || !target) newFolder(data.name || "Shared repertoire", null, false);
+      else if (R.folders.some(f => f.id === target)) R.folder = target;
+      saveFolders();
       let name = data.name || (color === "w" ? "White" : "Black");
-      while (R.sections.some(x => x.name === name)) name = name.replace(/( \(\d+\))?$/, m => " (" + ((+((m.match(/\d+/) || [1])[0])) + 1) + ")");
-      const s2 = { id: "s" + uid8(), name, color, root: Array.isArray(data.root) ? data.root.slice() : [], skip: Array.isArray(data.skip) ? data.skip.slice() : [], pos: Demo.posOf(color, data.pgn || ""), order: R.sections.length };
+      while (fsec().some(x => x.name === name)) name = name.replace(/( \(\d+\))?$/, m => " (" + ((+((m.match(/\d+/) || [1])[0])) + 1) + ")");
+      const s2 = { id: "s" + uid8(), name, color, root: Array.isArray(data.root) ? data.root.slice() : [], skip: Array.isArray(data.skip) ? data.skip.slice() : [], pos: Demo.posOf(color, data.pgn || ""), order: fsec().length, folder: R.folder };
       R.sections.push(s2); R.cur = s2.id; R.sel = null;
       touch(s2);
       return s2;
     }
-    return { init, show, hide, render, refreshData, addSectionCopy, get current() { return sec(); }, sectionTree, repertoirePGN, guessColour, get state() { return R; }, build };
+    return { init, show, hide, render, refreshData, addSectionCopy, get folders() { return R.folders; }, get folder() { return R.folder; }, get current() { return sec(); }, sectionTree, repertoirePGN, guessColour, get state() { return R; }, build };
   })();
 
   // ==================================================================== STUDIES
   const Stu = (function () {
-    const T = { studies: [], study: null, chapter: null, tree: null, node: null, lines: [], check: null, checking: false, timerStart: 0, loaded: false };
+    const T = { studies: [], study: null, chapter: null, tree: null, node: null, lines: [], check: null, checking: false, timerStart: 0, loaded: false, view: "lib", q: "" };
     let board = null, engineSeq = 0, timerId = 0, wired = false;
     const $ = (id) => document.getElementById(id);
 
@@ -4649,16 +4776,22 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
 
     // ---- creating things
+    function openStudy(st) {
+      T.study = st ? st.id : null;
+      T.view = st ? "study" : "lib";
+      if (st && st.chapters.length && (!chapter() || !st.chapters.includes(chapter()))) { openChapter(st.chapters[0]); T.chapterOpen = st.chapters[0].id; }
+      else if (st && !st.chapters.length) { T.chapter = null; T.chapterOpen = null; }
+    }
     function newStudy(name) {
       const st = { id: "t" + uid8(), name: name || "New study", chapters: [], created: Date.now(), updated: Date.now() };
       T.studies.unshift(st);
-      T.study = st.id;
+      T.study = st.id; T.view = "study";
       saveStudy(st, 0);
       return st;
     }
     function addChapter(st, ch) {
       st.chapters.push(ch);
-      T.study = st.id;
+      T.study = st.id; T.view = "study";
       openChapter(ch);
       saveStudy(st, 0);
       render();
@@ -4692,7 +4825,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       flash("Added to “" + st.name + "”");
     }
     function addCalcChapter(fen, orient) {
-      let st = study() || newStudy("Calculation training");
+      let st = (T.view === "study" && study()) || newStudy("Calculation training");
       const n = st.chapters.filter(c => c.type === "calc").length + 1;
       const ch = makeChapter("calc", "Exercise " + n, fen, orient || fen.split(" ")[1]);
       addChapter(st, ch);
@@ -4752,13 +4885,16 @@ textarea.inp { resize: vertical; font-size: 14px; }
     // ---- rendering
     function render() {
       if (!T.loaded) return;
+      const lib = T.view !== "study" || !study();
+      $("stuLib").hidden = !lib; $("stuView").hidden = lib;
+      if (lib) { stopTimer(); engineSeq++; renderLibrary(); return; }
+      $("stuStudyName").value = study().name;
       renderList();
       const ch = chapter();
       $("stuEmpty").hidden = !!ch;
       $("stuMain").hidden = !ch;
       if (!ch) { stopTimer(); return; }
       if (!T.tree || T.chapterOpen !== ch.id) { if (T.chapterOpen !== ch.id) { openChapter(ch); T.chapterOpen = ch.id; } }
-      $("stuStudyName").value = study().name;
       $("stuChapName").value = ch.name;
       $("stuType").textContent = ch.type === "calc" ? "Calculation exercise" : "Opening / analysis";
       if (ch.type === "calc" && !ch.unlocked && ch.eval && (ch.attempts || []).length) ch.unlocked = true;   // revealed before this rule existed
@@ -4770,25 +4906,24 @@ textarea.inp { resize: vertical; font-size: 14px; }
       renderBoard(null); renderTreeHtml(); renderSide(); runEngine();
       if (ch.type === "calc" && !T.check) startTimer(); else stopTimer();
     }
+    function renderLibrary() {
+      const el = $("stuGrid"), q = T.q.toLowerCase();
+      $("stuLibEmpty").hidden = T.studies.length > 0;
+      const list = T.studies.filter(st => !q || (st.name + " " + st.chapters.map(c => c.name).join(" ")).toLowerCase().includes(q));
+      el.innerHTML = list.map(st => {
+        const calc = st.chapters.filter(c => c.type === "calc").length, lines = st.chapters.length - calc;
+        const kinds = [lines ? lines + (lines === 1 ? " line chapter" : " line chapters") : "", calc ? calc + (calc === 1 ? " calculation" : " calculations") : ""].filter(Boolean).join(" · ") || "No chapters yet";
+        const peek = st.chapters.slice(0, 3).map(c => esc(c.name)).join(", ") + (st.chapters.length > 3 ? "…" : "");
+        return '<button class="ccard scard" data-study="' + st.id + '"><div class="cc-k">' + (calc && !lines ? "Calculation" : calc ? "Mixed" : "Study") + "</div><h3>" + esc(st.name) + '</h3><p class="why">' + (peek || "&nbsp;") + '</p><div class="cc-f"><span class="meta">' + kinds + "</span>" +
+          (st.updated ? '<span class="meta">' + new Date(st.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" }) + "</span>" : "") + "</div></button>";
+      }).join("") + (T.studies.length && !list.length ? '<p class="why">No studies match.</p>' : "");
+      el.querySelectorAll("[data-study]").forEach(b => b.onclick = () => { openStudy(T.studies.find(x => x.id === b.dataset.study)); render(); window.scrollTo(0, 0); });
+    }
     function renderList() {
-      const el = $("stuList");
-      if (!T.studies.length) { el.innerHTML = '<p class="why">No studies yet.</p>'; return; }
-      el.innerHTML = T.studies.map(st => {
-        const open = st.id === T.study;
-        let h = '<div class="sitem' + (open ? " open" : "") + '"><button class="sname" data-study="' + st.id + '">' + esc(st.name) + '<span class="why"> · ' + st.chapters.length + (st.chapters.length === 1 ? " chapter" : " chapters") + "</span></button>";
-        if (open) {
-          h += '<ol class="chaps">' + st.chapters.map(c => '<li><button class="chap' + (c.id === T.chapter ? " on" : "") + '" data-chap="' + c.id + '"><span class="ctype">' + (c.type === "calc" ? "Calc" : "Line") + "</span>" + esc(c.name) + "</button></li>").join("") + "</ol>";
-          h += '<div class="row"><button class="btn sm" data-addline="1">+ Line chapter</button><button class="btn sm" data-addcalc="1">+ Calculation</button></div>';
-        }
-        return h + "</div>";
-      }).join("");
-      el.querySelectorAll("[data-study]").forEach(b => b.onclick = () => {
-        T.study = b.dataset.study;
-        const st = study();
-        if (st.chapters.length && (!chapter() || !st.chapters.includes(chapter()))) { openChapter(st.chapters[0]); T.chapterOpen = st.chapters[0].id; }
-        else if (!st.chapters.length) { T.chapter = null; }
-        render();
-      });
+      const el = $("stuList"), st = study();
+      el.innerHTML = '<ol class="chaps">' + st.chapters.map(c => '<li><button class="chap' + (c.id === T.chapter ? " on" : "") + '" data-chap="' + c.id + '"><span class="ctype">' + (c.type === "calc" ? (c.mode === "deep" ? "Deep" : "Calc") : "Line") + "</span>" + esc(c.name) + "</button></li>").join("") + "</ol>" +
+        (st.chapters.length ? "" : '<p class="why">No chapters yet.</p>') +
+        '<div class="row"><button class="btn sm" data-addline="1">+ Line chapter</button><button class="btn sm" data-addcalc="1">+ Calculation</button></div>';
       el.querySelectorAll("[data-chap]").forEach(b => b.onclick = () => { const ch = study().chapters.find(c => c.id === b.dataset.chap); openChapter(ch); T.chapterOpen = ch.id; render(); });
       el.querySelectorAll("[data-addline]").forEach(b => b.onclick = lineDialog);
       el.querySelectorAll("[data-addcalc]").forEach(b => b.onclick = calcDialog);
@@ -4846,8 +4981,13 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const line = selectedLine();
       const branches = treeNodes(T.tree).filter(n => n !== T.tree && !n.children.length).length;
       $("stuCheck").disabled = T.checking || !line.length;
-      $("stuCheck").textContent = T.checking ? "Checking your line…" : branches > 1 ? "Check this line" : (T.check ? "Check again" : "Check my line");
-      $("stuLineInfo").textContent = line.length ? (branches > 1 ? "Selected line: " : "Your line: ") + lineText(line.map(n => n.san), T.tree.fen) : "No moves yet. Play the line you calculated.";
+      const deep = ch.mode === "deep";
+      document.querySelectorAll("[data-cmode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cmode === (deep ? "deep" : "puzzle"))));
+      $("stuModeHelp").textContent = deep ? "Play your full answer, including a reply to every defence that holds up (go back a move and play the alternative). Once you're clearly winning, answering one of the toughest defences is enough. You get a grade out of 100%: half for accuracy, half for covering the opponent's best defences."
+        : "One solution: play your line and check it.";
+      $("stuCheck").textContent = T.checking ? (deep ? "Grading…" : "Checking your line…") : deep ? (T.check ? "Grade again" : "Grade my solution") : branches > 1 ? "Check this line" : (T.check ? "Check again" : "Check my line");
+      $("stuLineInfo").textContent = deep ? (line.length ? "Your answer has " + branches + (branches === 1 ? " line" : " lines") + "." : "No moves yet. Play your answer on the board.")
+        : line.length ? (branches > 1 ? "Selected line: " : "Your line: ") + lineText(line.map(n => n.san), T.tree.fen) : "No moves yet. Play the line you calculated.";
       const tried = linesTried(ch), lk = locked(ch);
       $("stuUnlock").innerHTML = lk ? "<b>Evaluation and arrows unlock after " + NEED_LINES + " lines</b> (" + tried + " of " + NEED_LINES + " so far). Each line you play counts, side lines too: go back a move and play something else to start one."
         : (ch.type === "calc" ? "Evaluation and arrows are unlocked." : "");
@@ -4856,7 +4996,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       else r.hidden = true;
       $("stuAttempts").innerHTML = (ch.attempts || []).slice(0, 6).map(a =>
         '<li><span class="why">' + new Date(a.at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) + "</span> " + esc(a.line) +
-        ' <span class="' + (a.firstErr ? "ann-mistake" : "ann-best") + '">' + (a.firstErr ? "went wrong at " + esc(a.firstErr) : "held up") + "</span>" +
+        (a.grade != null ? ' <b>' + a.grade + "%</b>" : ' <span class="' + (a.firstErr ? "ann-mistake" : "ann-best") + '">' + (a.firstErr ? "went wrong at " + esc(a.firstErr) : "held up") + "</span>") +
         (a.secs ? ' <span class="why">' + fmtTime(a.secs) + "</span>" : "") + (a.help ? ' <span class="why">(engine was on)</span>' : "") + "</li>").join("") || '<li class="why">No attempts yet.</li>';
     }
     function fmtTime(s) { s = Math.round(s); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
@@ -4884,7 +5024,145 @@ textarea.inp { resize: vertical; font-size: 14px; }
         eng.analyse({ fen, turn: g.turn(), movetime: 900, multipv: 1, onInfo: (i) => { if (i.multipv === 1) last = i; }, onDone: (best) => resolve({ score: last ? last.score : { cp: 0 }, best: best && best !== "(none)" ? best : null }) });
       });
     }
+
+    // ==== Difficult exercise: the engine maps out the answer tree once, then grades a whole solution against it
+    //   your move: the engine's best, or anything within 0.5 of it, counts as correct
+    //   opponent: every reply within 0.5 of their best (up to 3) must be answered
+    //   a line ends at mate, when clearly decided, or after 4 of your moves
+    const DEEP = { tol: 50, replies: 3, maxMine: 4, ms: 1000, cap: 160, won: 300 };
+    function sideCp(score, side) {                      // engine score (White's view) -> the given side's view; mates as huge values
+      if (!score) return 0;
+      // mates are scored so each extra move to mate costs 1000: only defences that last equally long count as "best"
+      let v = score.result != null ? (score.result === 50 ? 0 : score.result === 100 ? 100000 : -100000)
+        : score.mate != null ? (score.mate > 0 ? 100000 - 1000 * score.mate : -100000 - 1000 * score.mate) : score.cp;
+      return side === "w" ? v : -v;
+    }
+    const isMateScore = (v) => Math.abs(v) >= 50000;
+    function multiLines(eng, fen, multipv) {
+      return new Promise((resolve) => {
+        const g = new Chess(fen), lines = [];
+        if (g.game_over()) { resolve([]); return; }
+        eng.analyse({ fen, turn: g.turn(), movetime: DEEP.ms, multipv, onInfo: (i) => { if (i.multipv >= 1 && i.pv && i.pv[0]) lines[i.multipv - 1] = i; },
+          onDone: () => resolve(lines.filter(Boolean).map(l => { const mv = new Chess(fen).move({ from: l.pv[0].slice(0, 2), to: l.pv[0].slice(2, 4), promotion: l.pv[0][4] || "q" }); return mv ? { san: mv.san, score: l.score } : null; }).filter(Boolean)) });
+      });
+    }
+    async function buildSolution(ch, progress) {
+      const eng = await makeEngine();
+      if (!eng) throw new Error("The engine couldn't start.");
+      const me = ch.fen.split(" ")[1], opp = me === "w" ? "b" : "w";
+      let count = 0, truncated = false, decided = 300;
+      const after = (fen, san) => { const g = new Chess(fen); g.move(san, { sloppy: true }); return g.fen(); };
+      async function mine(fen, made) {
+        if (new Chess(fen).game_over()) return { e: 1 };
+        if (made >= DEEP.maxMine || count >= DEEP.cap) { if (count >= DEEP.cap) truncated = true; return { e: 1 }; }
+        const lines = await multiLines(eng, fen, 3); count++; progress(count);
+        if (!lines.length) return { e: 1 };
+        const best = sideCp(lines[0].score, me);
+        if (made === 0) decided = Math.max(300, best + 200);
+        else if (!isMateScore(best) && best >= decided) return { e: 1 };     // clearly decided: the line is done
+        // your move: the best, anything within 0.5 of it, or (when you're mating) any move that still forces mate
+        const ok = lines.filter(l => { const v = sideCp(l.score, me); return best - v <= DEEP.tol || (isMateScore(best) && best > 0 && isMateScore(v) && v > 0); }).map(l => l.san);
+        return { m: lines[0].san, ok, n: await theirs(after(fen, lines[0].san), made + 1) };
+      }
+      async function theirs(fen, made) {
+        if (new Chess(fen).game_over() || count >= DEEP.cap) { if (count >= DEEP.cap) truncated = true; return { e: 1 }; }
+        const lines = await multiLines(eng, fen, DEEP.replies + 1); count++; progress(count);
+        if (!lines.length) return { e: 1 };
+        const best = sideCp(lines[0].score, opp);
+        // in a position you're already clearly winning (+3 or more), only the toughest defence has to be answered;
+        // otherwise every defence within 0.5 of the best, up to 3
+        const reps = lines.filter(l => best - sideCp(l.score, opp) <= DEEP.tol).slice(0, DEEP.replies);
+        const r = [];
+        for (const l of reps) r.push({ m: l.san, n: await mine(after(fen, l.san), made) });
+        return -best >= DEEP.won ? { r, any: 1 } : { r };      // any: answering one of these defences is enough
+      }
+      try {
+        const root = await mine(ch.fen, 0);
+        return { v: 1, fen: ch.fen, root, positions: count, truncated, built: Date.now() };
+      } finally { eng.quit(); }
+    }
+    function countReplies(n) {                          // opponent replies to be answered below this point
+      if (!n || n.e) return 0;
+      if (n.r && n.any) return 1 + countReplies(n.r[0].n);
+      if (n.r) return n.r.reduce((a, x) => a + 1 + countReplies(x.n), 0);
+      return countReplies(n.n);
+    }
+    function gradeSolution(sol, user) {
+      const out = { decisions: 0, correct: 0, required: 0, covered: 0, missed: [], wrong: [], stopped: [], good: [], alt: [], extra: 0 };
+      function mine(sn, un, path) {
+        if (!sn || sn.e) return;
+        out.decisions++;
+        const uc = un.children[0];
+        if (!uc) { out.stopped.push(path); out.required += countReplies(sn.n); return; }
+        if (uc.san === sn.m) { out.correct++; out.good.push(uc.id); theirs(sn.n, uc, path.concat(uc.san)); }
+        else if (sn.ok.includes(uc.san)) { out.correct++; out.good.push(uc.id); out.alt.push(path.concat(uc.san)); const k = countReplies(sn.n); out.required += k; out.covered += k; }
+        else { out.wrong.push({ path, san: uc.san, best: sn.m, id: uc.id }); out.required += countReplies(sn.n); }
+      }
+      function theirs(sn, un, path) {
+        if (!sn || sn.e) return;
+        un.children.forEach(c => { if (!sn.r.some(r => r.m === c.san)) out.extra++; });
+        if (sn.any) {                                     // already winning: one strong defence answered is enough
+          out.required++;
+          const hit = sn.r.find(r => un.children.some(c => c.san === r.m));
+          if (hit) { out.covered++; mine(hit.n, un.children.find(c => c.san === hit.m), path.concat(hit.m)); }
+          else { out.missed.push(path.concat(sn.r[0].m + (sn.r.length > 1 ? " (or " + sn.r.slice(1).map(r => r.m).join(", ") + ")" : ""))); out.required += countReplies(sn.r[0].n); }
+          return;
+        }
+        for (const rep of sn.r) {
+          out.required++;
+          const uc = un.children.find(c => c.san === rep.m);
+          if (uc) { out.covered++; mine(rep.n, uc, path.concat(rep.m)); }
+          else { out.missed.push(path.concat(rep.m)); out.required += countReplies(rep.n); }
+        }
+      }
+      mine(sol.root, user, []);
+      out.accuracy = out.decisions ? out.correct / out.decisions : 0;
+      out.coverage = out.required ? out.covered / out.required : 1;
+      out.grade = Math.round(50 * out.accuracy + 50 * out.coverage);
+      return out;
+    }
+    async function gradeDeep() {
+      const ch = chapter(), st = study();
+      if (T.checking) return;
+      const secs = (Date.now() - T.timerStart) / 1000, help = !!(ch.eval || ch.arrows);
+      T.checking = true; renderSide();
+      const r = $("stuResult");
+      try {
+        if (!ch.sol || ch.sol.fen !== ch.fen) {
+          r.hidden = false;
+          r.innerHTML = "<p><b>Mapping out the answer…</b> The engine is working through every good defence, once for this exercise. This usually takes under a minute.</p>";
+          const sol = await buildSolution(ch, (n) => { if (chapter() === ch) r.innerHTML = "<p><b>Mapping out the answer…</b> " + n + " positions analysed so far. This is done once for this exercise.</p>"; });
+          ch.sol = sol;
+        }
+        if (chapter() !== ch) return;
+        const g = gradeSolution(ch.sol, T.tree);
+        const line = lineText(mainline(T.tree).map(n => n.san), T.tree.fen) || "(no moves)";
+        ch.attempts = [{ at: Date.now(), line: (() => { const k = treeNodes(T.tree).filter(n => n !== T.tree && !n.children.length).length; return line + (k > 1 ? " and " + (k - 1) + " more " + (k === 2 ? "line" : "lines") : ""); })(), grade: g.grade, firstErr: g.wrong.length ? lineText(g.wrong[0].path.concat(g.wrong[0].san), T.tree.fen).split(" ").pop() : null, secs: Math.round(secs), help }].concat(ch.attempts || []).slice(0, 20);
+        // each answered branch counts toward unlocking the analysis
+        const open = !locked(ch);
+        const L = (path) => esc(lineText(path, T.tree.fen) || "the start");
+        let h = '<p class="grade"><b>' + g.grade + "%</b></p>";
+        h += "<p><b>Accuracy " + Math.round(g.accuracy * 100) + "%:</b> " + g.correct + " of " + g.decisions + " of your moves were good. <b>Coverage " + Math.round(g.coverage * 100) + "%:</b> you answered " + g.covered + " of " + g.required + " opponent replies that hold up best (within 0.5 of their top choice).</p>";
+        if (g.wrong.length) h += '<p class="gl-h">Moves that aren\'t good enough</p><ul class="gl">' + g.wrong.slice(0, 6).map(w => "<li>" + L(w.path.concat(w.san)) + (open ? ' <span class="why">(better: ' + esc(w.best) + ")</span>" : "") + "</li>").join("") + "</ul>";
+        if (g.missed.length) h += '<p class="gl-h">Defences you didn\'t consider</p><ul class="gl">' + g.missed.slice(0, 8).map(m => { const last = m[m.length - 1], extra = / \(or .*\)$/.exec(last); const p = extra ? m.slice(0, -1).concat(last.replace(extra[0], "")) : m; return "<li>" + L(p) + (extra ? '<span class="why">' + esc(extra[0]) + "</span>" : "") + "</li>"; }).join("") + (g.missed.length > 8 ? "<li>and " + (g.missed.length - 8) + " more</li>" : "") + "</ul>";
+        if (g.stopped.length) h += '<p class="gl-h">Lines you stopped too early</p><ul class="gl">' + g.stopped.slice(0, 5).map(p => "<li>after " + L(p) + "</li>").join("") + "</ul>";
+        if (g.extra) h += '<p class="why">You also answered ' + g.extra + (g.extra === 1 ? " other reply" : " other replies") + "; those aren't graded, because the engine doesn't rate them among the toughest defences.</p>";
+        if (g.alt.length) h += '<p class="why">You chose a different good move at ' + g.alt.length + (g.alt.length === 1 ? " point" : " points") + "; it counts as correct, and the lines after it aren't graded.</p>";
+        if (!open) h += '<p class="why">Keep calculating: ' + (NEED_LINES - linesTried(ch)) + " more " + (NEED_LINES - linesTried(ch) === 1 ? "line unlocks" : "lines unlock") + " the engine's moves.</p>";
+        if (ch.sol.truncated) h += '<p class="why">This position branches a lot, so the answer was mapped only partway.</p>';
+        const byId = {};
+        if (open) { g.good.forEach(id => byId[id] = { kind: "best" }); g.wrong.forEach(w => byId[w.id] = { kind: "mistake" }); }
+        T.check = { byId, summary: h };
+        if (open) { ch.unlocked = true; ch.eval = true; ch.arrows = true; }
+        saveStudy(st, 0);
+        stopTimer();
+      } catch (e) {
+        r.hidden = false; r.innerHTML = '<p class="msg err">' + esc(e.message || "Something went wrong while checking.") + "</p>";
+      } finally { T.checking = false; render(); }
+    }
+
     async function checkLine() {
+      if (chapter() && chapter().mode === "deep") return gradeDeep();
       const ch = chapter(), st = study();
       const line = selectedLine();
       if (!line.length || T.checking) return;
@@ -4997,9 +5275,16 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function setup() {
       board = new MiniBoard($("stuBoard"), { onMove: (mv, fen, animate) => onMove(mv, fen, animate) });
       $("stuNew").onclick = () => { openDialog("New study", '<div class="field"><label for="nsN">Name</label><input id="nsN" class="inp" placeholder="Sicilian Najdorf"></div><div class="row"><button class="btn primary" id="nsK">Create study</button></div>', (close) => { $("nsK").onclick = () => { newStudy($("nsN").value.trim() || "New study"); T.chapter = null; close(); render(); }; }); };
+      $("stuNewCalc").onclick = () => { T.study = null; calcDialog(); };
       $("stuStart1").onclick = () => $("stuNew").click();
-      $("stuStart2").onclick = calcDialog;
-      $("stuStudyName").oninput = (e) => { const st = study(); if (st) { st.name = e.target.value || "Untitled study"; saveStudy(st, 900); renderList(); } };
+      $("stuStart2").onclick = () => $("stuNewCalc").click();
+      $("stuSearch").oninput = (e) => { T.q = e.target.value.trim(); renderLibrary(); };
+      $("stuBack").onclick = () => { T.view = "lib"; render(); window.scrollTo(0, 0); };
+      document.querySelectorAll("[data-cmode]").forEach(b => b.onclick = () => {
+        const ch = chapter(); if (!ch || ch.type !== "calc") return;
+        ch.mode = b.dataset.cmode; T.check = null; saveStudy(study()); renderList(); renderSide(); renderTreeHtml();
+      });
+      $("stuStudyName").oninput = (e) => { const st = study(); if (st) { st.name = e.target.value || "Untitled study"; saveStudy(st, 900); } };
       $("stuChapName").oninput = (e) => { const ch = chapter(); if (ch) { ch.name = e.target.value || "Untitled chapter"; saveStudy(study(), 900); renderList(); } };
       $("stuComment").oninput = (e) => { if (T.node) { T.node.comment = e.target.value; clearTimeout(T.cmtT); T.cmtT = setTimeout(() => { storeTree(); renderTreeHtml(); }, 700); } };
       $("stuPrompt").oninput = (e) => { const ch = chapter(); if (ch) { ch.prompt = e.target.value; saveStudy(study(), 900); } };
@@ -5033,7 +5318,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("stuDelStudy").onclick = () => {
         const st = study(); if (!st) return;
         openDialog("Delete this study?", "<p>This deletes <b>" + esc(st.name) + "</b> and all " + st.chapters.length + ' chapters. It can\'t be undone.</p><div class="row"><button class="btn danger" id="dsOk">Delete study</button></div>', (close) => {
-          $("dsOk").onclick = () => { T.studies = T.studies.filter(x => x !== st); Store.remove("study-" + st.id); T.study = T.studies[0] ? T.studies[0].id : null; T.chapter = null; T.chapterOpen = null; close(); render(); };
+          $("dsOk").onclick = () => { T.studies = T.studies.filter(x => x !== st); Store.remove("study-" + st.id); T.study = null; T.view = "lib"; T.chapter = null; T.chapterOpen = null; close(); render(); };
         });
       };
       $("stuCheck").onclick = checkLine;
@@ -5049,7 +5334,6 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function show() {
       if (!wired) { setup(); wired = true; }
-      if (!T.study && T.studies[0]) { T.study = T.studies[0].id; const st = study(); if (st.chapters[0]) { openChapter(st.chapters[0]); T.chapterOpen = st.chapters[0].id; } }
       render();
     }
     function hide() { engineSeq++; stopTimer(); }
@@ -5057,8 +5341,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function addStudyCopy(data) {
       const st = { id: "t" + uid8(), name: data.name || "Shared study", created: Date.now(), updated: Date.now(),
         chapters: (data.chapters || []).map(c => ({ id: "c" + uid8(), type: c.type === "calc" ? "calc" : "line", name: c.name || "Chapter", fen: c.fen || START_FEN, orient: c.orient === "b" ? "b" : "w", pgn: c.pgn || "", prompt: c.prompt || "", eval: false, arrows: false, attempts: [] })) };
+      st.chapters.forEach((c, i) => { if (c.type === "calc" && (data.chapters[i] || {}).mode === "deep") c.mode = "deep"; });
       T.studies.unshift(st);
-      T.study = st.id;
+      T.study = st.id; T.view = "study";
       if (st.chapters[0]) openChapter(st.chapters[0]);
       saveStudy(st, 0);
       return st;
@@ -5103,7 +5388,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     // what gets shared: no ids, no attempt history; repertoire sections travel as PGN (your notes become comments)
     function payloadForStudy(st) {
-      return { app: "fox-chess-lab", v: 1, k: "study", name: st.name, chapters: st.chapters.map(c => ({ type: c.type, name: c.name, fen: c.fen, orient: c.orient, pgn: c.pgn || "", prompt: c.prompt || "" })) };
+      return { app: "fox-chess-lab", v: 1, k: "study", name: st.name, chapters: st.chapters.map(c => Object.assign({ type: c.type, name: c.name, fen: c.fen, orient: c.orient, pgn: c.pgn || "", prompt: c.prompt || "" }, c.mode === "deep" ? { mode: "deep" } : {})) };
     }
     function payloadForSection(s) {
       return { app: "fox-chess-lab", v: 1, k: "rep", name: s.name, color: s.color, root: s.root, skip: s.skip || [], pgn: treeToPGN(Rep.sectionTree(s), null) };
@@ -5169,17 +5454,18 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const ml = mainline(parsePGN(p.pgn).root).slice(0, 10).map(n => n.san);
       return '<p class="rep-pos">' + esc(lineText(ml)) + (ml.length === 10 ? " …" : "") + "</p>";
     }
-    function saveCopy(p) {
+    function saveCopy(p, target) {
       if (DEMO) { flash("This is the example; open the site normally to save copies"); return; }
       if (p.k === "study") { Stu.addStudyCopy(p); showTab("studies"); flash("Saved a copy of " + p.name + " to your studies"); }
-      else { const s = Rep.addSectionCopy(p); showTab("repertoire"); flash("Saved " + s.name + " to your repertoire"); }
+      else { const s = Rep.addSectionCopy(p, target); showTab("repertoire"); flash("Saved " + s.name + " to your repertoire"); }
     }
     function offer(p, how) {
       openDialog((how === "link" ? "Shared with you: " : "") + p.name,
         '<p class="why">' + esc(summary(p)) + (p.author ? " · by " + esc(p.author) : "") + "</p>" + (p.desc ? "<p>" + esc(p.desc) + "</p>" : "") + preview(p) +
         '<p class="why">Saving makes your own private copy, saved in this browser. You can change it freely; the original isn\'t affected.</p>' +
+        (p.k === "rep" && Rep.folders ? '<div class="field"><label for="ofFolder">Put it in</label><select id="ofFolder"><option value="__new">A new repertoire of its own (keeps it apart from yours)</option>' + Rep.folders.map(f => '<option value="' + esc(f.id) + '">' + esc(f.name) + "</option>").join("") + "</select></div>" : "") +
         '<div class="row"><button class="btn primary" id="ofSave">Save a copy</button></div>',
-        (close) => { document.getElementById("ofSave").onclick = () => { close(); saveCopy(p); }; });
+        (close) => { document.getElementById("ofSave").onclick = () => { const sel = document.getElementById("ofFolder"); close(); saveCopy(p, sel ? sel.value : null); }; });
     }
     async function checkHash() {
       const h = location.hash || "";

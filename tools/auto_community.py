@@ -91,7 +91,8 @@ def check(p):
             if len(pgn) > 60000:
                 raise Reject("one of the chapters is too long")
             out["chapters"].append({"type": "calc" if c.get("type") == "calc" else "line", "name": clean(c.get("name"), 80) or "Chapter",
-                                    "fen": fen, "orient": "b" if c.get("orient") == "b" else "w", "pgn": pgn, "prompt": clean(c.get("prompt"), 400)})
+                                    "fen": fen, "orient": "b" if c.get("orient") == "b" else "w", "pgn": pgn, "prompt": clean(c.get("prompt"), 400),
+                                    **({"mode": "deep"} if c.get("mode") == "deep" else {})})
     else:
         pgn = str(p.get("pgn") or "")
         if not pgn.strip() or len(pgn) > 250000:
