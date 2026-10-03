@@ -585,6 +585,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
 #bldBg .mb-wrap { max-width: 460px; }
 .bld #bldStatus { font-family: var(--font-body); font-size: 13.5px; }
 
+/* ---------- split an opening into its own section ---------- */
+.rep-split { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: -6px 0 14px; }
+.rep-split .inp { width: 220px; max-width: 100%; padding: 6px 9px; }
+.rep-split .msg { margin: 0; flex-basis: 100%; min-height: 0; }
+.rep-split .msg:empty { display: none; }
+
 </style>
 
 <div class="app">
@@ -714,6 +720,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
   <section id="tab-repertoire" hidden>
     <div class="rep-folders" id="repFolders"></div>
     <div class="rep-sections" id="repSections"></div>
+    <div class="rep-split"><label class="mini-l" for="repSplitIn">Give an opening its own section</label><input class="inp" id="repSplitIn" placeholder="White: Sicilian" autocomplete="off"><button class="btn sm" id="repSplitBtn">Make section</button><span class="msg" id="repSplitMsg" role="status"></span></div>
     <div class="rep-main">
       <div class="card rep-treecard">
         <div class="card-h rep-h">
@@ -731,7 +738,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Prepared reply</span><span><i class="lg gap"></i>Gap: common reply not prepared</span><span><i class="lg fweak"></i>Weak point</span><span><i class="lg fstrong"></i>Strong point</span><span class="why">Thicker = more common</span>
         </div>
         <div class="rep-tree" id="repTree"></div>
-        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repAsStudy" title="Turn this section into a study chapter, with all its lines and notes">Open as study</button><button class="btn" id="repShare" hidden>Share section</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
+        <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repAsStudy" title="Turn this section into a study chapter, with all its lines and notes">Open as study</button><button class="btn" id="repShareSec" hidden>Share section</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
       </div>
       <aside class="rep-side">
         <div class="card">
@@ -2785,7 +2792,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     put(id, data) { return this.tx("readwrite", st => data === null ? st.delete(id) : st.put(data, id)); },
   };
   const Store = {
-    mode: "local", local: "ls", db: null, uid: null, ready: null, pending: {}, writing: {}, timers: {}, listeners: [], failed: new Map(),
+    mode: "local", local: "ls", db: null, uid: null, ready: null, pending: {}, writing: {}, timers: {}, getters: {}, unsaved: {}, listeners: [], failed: new Map(),
     init() {
       this.ready = (async () => {
         if (DEMO) { this.mode = "demo"; this.emit("ready-demo"); return this.mode; }
@@ -2832,7 +2839,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           snap.docs.forEach(d => { if (d.exists) out.push(Object.assign({}, d.data(), { _id: d.id })); });
         } catch (e) { this.emit("load-error", e && e.code); }
       } else if (this.local === "idb") {
-        try { (await LocalDB.all()).forEach(([id, d]) => { if (d) out.push(Object.assign({}, d, { _id: id })); }); }
+        try { await this.replayJournal(); (await LocalDB.all()).forEach(([id, d]) => { if (d) out.push(Object.assign({}, d, { _id: id })); }); }
         catch (e) { this.emit("load-error", "local"); }
       } else {
         const all = this.readLocal();
@@ -2845,7 +2852,29 @@ textarea.inp { resize: vertical; font-size: 14px; }
       if (this.mode === "demo" || DEMO) { this.emit("demo"); return; }
       clearTimeout(this.timers[id]);
       this.emit("dirty");
-      this.timers[id] = setTimeout(() => { this.pending[id] = getData(); this.flush(id); }, ms == null ? 700 : ms);
+      this.getters[id] = getData;
+      this.timers[id] = setTimeout(() => { delete this.timers[id]; this.pending[id] = getData(); this.flush(id); }, ms == null ? 700 : ms);
+    },
+    // write everything still waiting, right away (the page is being hidden or closed)
+    // A database save started while the page closes can be cut off, so anything not yet confirmed is also
+    // written to a small journal in localStorage, which is instant. The next visit finishes saving it.
+    flushAll() {
+      for (const id of Object.keys(this.timers)) {
+        clearTimeout(this.timers[id]); delete this.timers[id];
+        try { this.pending[id] = this.getters[id](); this.flush(id); } catch (e) { /* keep going */ }
+      }
+      if (this.mode !== "local" || this.local !== "idb") return;
+      const j = Object.assign({}, this.unsaved);
+      for (const id in this.pending) j[id] = this.pending[id];
+      try { if (Object.keys(j).length) localStorage.setItem("pcl-docs-journal", JSON.stringify(j)); } catch (e) { /* too big: the normal save may still finish */ }
+    },
+    async replayJournal() {
+      let j = null;
+      try { j = JSON.parse(localStorage.getItem("pcl-docs-journal") || "null"); } catch (e) { j = null; }
+      if (!j) return null;
+      try { await LocalDB.tx("readwrite", st => { for (const id of Object.keys(j)) { if (j[id] === null) st.delete(id); else st.put(j[id], id); } }); localStorage.removeItem("pcl-docs-journal"); }
+      catch (e) { /* keep the journal for next time */ }
+      return j;
     },
     remove(id) { if (this.mode === "demo" || DEMO) return; clearTimeout(this.timers[id]); this.pending[id] = null; this.flush(id); },
     async flush(id) {
@@ -2871,7 +2900,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
             }
           } else {
             try {
+              this.unsaved[id] = data;
               if (this.local === "idb") await LocalDB.put(id, data);
+              if (this.unsaved[id] === data) delete this.unsaved[id];
               else {
                 const all = this.readLocal();
                 if (data === null) delete all[id]; else all[id] = data;
@@ -2891,6 +2922,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
       } finally { this.writing[id] = false; }
     }
   };
+  addEventListener("pagehide", () => Store.flushAll());
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") Store.flushAll(); });
   const saveDot = document.getElementById("saveState");
   Store.on((state, detail) => {
     if (!saveDot) return;
@@ -4041,6 +4074,15 @@ textarea.inp { resize: vertical; font-size: 14px; }
 
     // ---- folders: separate repertoires (e.g. your main one, a 1.d4 experiment, one you imported to learn)
     const MAIN = "main";
+    // A section leaves out lines listed in skip: "e4" = that move right after the section's starting line (older form),
+    // "=e4 c5" = every line that starts with exactly these moves (used when an opening is split into its own section)
+    function isSkipped(s, path) {
+      for (const k of s.skip || []) {
+        if (k[0] === "=") { const t = k.slice(1).split(" "); if (path.length >= t.length && t.every((m, i) => path[i] === m)) return true; }
+        else if (path.length > s.root.length && path[s.root.length] === k && s.root.every((m, i) => path[i] === m)) return true;
+      }
+      return false;
+    }
     function fsec() { return R.sections.filter(s => (s.folder || MAIN) === R.folder); }
     function folderOf(id) { return R.folders.find(f => f.id === id) || R.folders[0]; }
     function standardSections(folder, whiteRoot) {
@@ -4145,8 +4187,10 @@ textarea.inp { resize: vertical; font-size: 14px; }
             if (mv) {
               const pk = fetch ? Explorer.get(fen, { owner: "rep", prio: node.reach * 0.5 }) : Explorer.peek(fen), stats = pk && pk.moves ? pk.moves : [];
               const total = pk && pk.total ? pk.total : 0, st = stats.find(x => x.san === mv.san);
+              const child = mk(node.path.concat(mv.san), sp.fen, node, mv.san, "mine", node.reach, total && st ? st.n / total : null, st ? st.n : 0, mv);
+              if (isSkipped(s, child.path)) { child.elsewhere = true; leaves.push(child); return; }   // continues in its own section
               onPath.add(key);
-              expand(mk(node.path.concat(mv.san), sp.fen, node, mv.san, "mine", node.reach, total && st ? st.n / total : null, st ? st.n : 0, mv));
+              expand(child);
               onPath.delete(key);
               return;
             }
@@ -4159,12 +4203,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
         if (!data) { node.loading = true; pending++; leaves.push(node); return; }
         if (data.failed) { node.failed = data.text; failed++; leaves.push(node); return; }
         const stats = data.moves;
-        const skip = node === root ? (s.skip || []) : [];
-        const skipN = stats.reduce((a, b) => a + (skip.includes(b.san) ? b.n : 0), 0);
+        const out = (san) => isSkipped(s, node.path.concat(san));
+        const skipN = stats.reduce((a, b) => a + (out(b.san) ? b.n : 0), 0);
         const total = Math.max(0, (data.total || stats.reduce((a, b) => a + b.n, 0)) - skipN);
-        const list = stats.filter(st => !skip.includes(st.san) && total && st.n / total >= R.minShare);
+        const list = stats.filter(st => !out(st.san) && total && st.n / total >= R.minShare);
         const extra = idx.get(node.path.join(" "));
-        if (extra) for (const san of extra) if (!list.find(x => x.san === san) && !skip.includes(san)) list.push(stats.find(x => x.san === san) || { san, n: 0 });
+        if (extra) for (const san of extra) if (!list.find(x => x.san === san) && !out(san)) list.push(stats.find(x => x.san === san) || { san, n: 0 });
         if (!list.length) { node.noData = true; leaves.push(node); return; }
         onPath.add(key);
         for (const st of list) {
@@ -4293,7 +4337,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         } else if (n.cut && n.kind !== "mine") {
           extra = '<text class="more" x="' + (n.x + w + 6) + '" y="' + (n.cy + 4) + '">›</text>';
         }
-        const title = lineText(n.path) + (n.share != null && n.kind === "opp" ? " · played in " + pct(n.share) + " of games here" : "") + (n.needsMove ? " · not prepared yet" : "") + (n.flag === "weak" ? " · weak point" : n.flag === "strong" ? " · strong point" : "") + (n.loading ? " · loading live numbers" : "") + (n.failed ? " · couldn't load: " + n.failed : "");
+        const title = lineText(n.path) + (n.elsewhere ? " · continues in its own section" : "") + (n.share != null && n.kind === "opp" ? " · played in " + pct(n.share) + " of games here" : "") + (n.needsMove ? " · not prepared yet" : "") + (n.flag === "weak" ? " · weak point" : n.flag === "strong" ? " · strong point" : "") + (n.loading ? " · loading live numbers" : "") + (n.failed ? " · couldn't load: " + n.failed : "");
         pills += '<g class="' + cls + '" data-id="' + esc(n.id) + '" tabindex="0" role="button" aria-label="' + esc(title) + '"><title>' + esc(title) + "</title>" +
           (nm ? '<text class="oname" x="' + n.x + '" y="' + (n.cy - PH / 2 - 4) + '">' + esc(nm.length > 26 ? nm.slice(0, 25) + "…" : nm) + "</text>" : "") +
           '<rect x="' + n.x + '" y="' + (n.cy - PH / 2) + '" width="' + w + '" height="' + PH + '" rx="13"/>' +
@@ -4358,9 +4402,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
       if (!data) { el.innerHTML = '<p class="why">Loading ' + esc(Explorer.label()) + "…</p>"; return; }
       if (data.failed) { el.innerHTML = '<p class="why">This position couldn\'t be loaded: ' + esc(data.text) + "</p>"; return; }
       const live = !data.builtin, stats = data.moves;
-      const skip = !path.length || path.join(" ") === s.root.join(" ") ? (s.skip || []) : [];
-      const list = stats.filter(x => !skip.includes(x.san));
-      const skipN = stats.reduce((a, b) => a + (skip.includes(b.san) ? b.n : 0), 0);
+      const out = (san) => isSkipped(s, path.concat(san));
+      const list = stats.filter(x => !out(x.san));
+      const skipN = stats.reduce((a, b) => a + (out(b.san) ? b.n : 0), 0);
       const denom = live ? Math.max(0, data.total - skipN) : list.reduce((a, b) => a + b.n, 0);
       let rows = "";
       for (const st of list.slice(0, 10)) {
@@ -4467,8 +4511,11 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function deleteDialog() {
       const s = sec();
-      openDialog("Delete this section?", '<p>This deletes <b>' + esc(s.name) + "</b> and its " + Object.keys(s.pos).length + ' prepared positions. It can\'t be undone.</p><div class="row"><button class="btn danger" id="dlOk">Delete section</button></div>',
+      const back = splitParent(s);
+      openDialog("Delete this section?", (back ? '<p>Move its lines back into <b>' + esc(back.name) + "</b>, or delete them.</p>" : '<p>This deletes <b>' + esc(s.name) + "</b> and its " + Object.keys(s.pos).length + " prepared positions. It can\'t be undone.</p>") +
+        '<div class="row">' + (back ? '<button class="btn primary" id="dlBack">Move back</button>' : "") + '<button class="btn danger" id="dlOk">Delete' + (back ? " " + Object.keys(s.pos).length + " positions" : " section") + "</button></div>",
         (close) => {
+          if (back) $("dlBack").onclick = () => { close(); mergeBack(s, back); flash("Moved back into “" + back.name + "”"); };
           $("dlOk").onclick = () => {
             R.sections = R.sections.filter(x => x !== s);
             Store.remove("rep-" + s.id);
@@ -4595,7 +4642,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       for (const s of fsec()) {
         if (s.color !== color || s.root.length > path.length) continue;
         if (!s.root.every((m, i) => path[i] === m)) continue;
-        if (path.length > s.root.length && (s.skip || []).includes(path[s.root.length])) continue;
+        if (path.length > s.root.length && isSkipped(s, path)) continue;
         if (!best || s.root.length > best.root.length) best = s;
       }
       if (!best) {
@@ -4688,7 +4735,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       for (const s of pool) {
         if (s.color !== color || s.root.length > path.length) continue;
         if (!s.root.every((m, i) => path[i] === m)) continue;
-        if (path.length > s.root.length && (s.skip || []).includes(path[s.root.length])) continue;
+        if (path.length > s.root.length && isSkipped(s, path)) continue;
         if (!best || s.root.length > best.root.length) best = s;
       }
       if (!best) {
@@ -5057,6 +5104,101 @@ textarea.inp { resize: vertical; font-size: 14px; }
         (c2) => { $("imDone").onclick = c2; });
     }
 
+    // ---- split an opening into its own section: "White: Sicilian" or "White: 1.e4 c5"
+    //   the opening is found by name in your own lines (the shortest line whose opening name matches), or typed as moves;
+    //   its positions move to the new section, and the sections they came from leave that line out from then on
+    function parseLine(text) {
+      const toks = text.replace(/\d+\.(\.\.)?/g, " ").split(/\s+/).filter(Boolean);
+      let fen = START_FEN; const out = [];
+      for (const t of toks) { const sp = step(fen, t); if (!sp) return null; out.push(sp.mv.san); fen = sp.fen; }
+      return out.length ? out : null;
+    }
+    async function findOpening(color, query) {
+      if (/^\s*1\s*\./.test(query) || /^[a-h][1-8]\b|^[NBRQK][a-h]?x?[a-h][1-8]/.test(query.trim())) {
+        const line = parseLine(query);
+        return line ? { root: line, label: lineText(line), how: "moves" } : { error: "Couldn't read those moves. Write them like 1.e4 c5." };
+      }
+      await OData.load();
+      if (!OData.names) return { error: "The opening names couldn't be loaded. Type the moves instead, like White: 1.e4 c5." };
+      const words = query.toLowerCase().split(/[\s,:\-–]+/).filter(w => w.length > 1);
+      if (!words.length) return { error: "Type an opening name after the colour, like White: Sicilian." };
+      const hits = new Map();                         // starting line -> {root, name, count}
+      for (const t of fsec().filter(x => x.color === color)) {
+        for (const k in t.pos) {
+          const e = t.pos[k], toks = (e.p ? e.p.split(" ") : []).concat(e.m);
+          let fen = START_FEN;
+          for (let i = 0; i < toks.length; i++) {
+            const sp = step(fen, toks[i]); if (!sp) break; fen = sp.fen;
+            const nm = OData.name(fen);
+            if (nm && words.every(w => nm.name.toLowerCase().includes(w))) {
+              const root = toks.slice(0, i + 1), id = root.join(" ");
+              const h = hits.get(id) || { root, name: nm.name, count: 0 }; h.count++; hits.set(id, h);
+              break;
+            }
+          }
+        }
+      }
+      if (!hits.size) return { error: "Nothing in your " + (color === "w" ? "White" : "Black") + " lines here is named like “" + query + "”. Try another name, or type the moves, like " + (color === "w" ? "White" : "Black") + ": 1.e4 c5." };
+      const best = [...hits.values()].sort((a, b) => (a.root.length - b.root.length) || (b.count - a.count))[0];
+      return { root: best.root, label: lineText(best.root) + " (" + best.name + ")", how: "name", others: hits.size - 1 };
+    }
+    async function splitOpening(text) {
+      const msg = $("repSplitMsg");
+      const say = (t, err) => { msg.textContent = t; msg.className = "msg" + (err ? " err" : ""); };
+      const m = /^\s*(white|black|w|b)\s*[:\-–]?\s*(.+)$/i.exec(text || "");
+      if (!m) { say("Start with the colour, then the opening: White: Sicilian, or Black: 1.d4 d5 2.c4", true); return; }
+      const color = m[1][0].toLowerCase(), query = m[2].trim(), side = color === "w" ? "White" : "Black";
+      say("Looking through your lines…");
+      const f = await findOpening(color, query);
+      if (f.error) { say(f.error, true); return; }
+      const rootId = f.root.join(" ");
+      const same = fsec().find(t => t.color === color && t.root.join(" ") === rootId);
+      if (same) { say("“" + same.name + "” already starts with " + lineText(f.root) + ".", true); return; }
+      const starts = (p) => { const t = p ? p.split(" ") : []; return t.length >= f.root.length && f.root.every((x, i) => t[i] === x); };
+      const moves = [];                               // [section, key] of every prepared position inside the opening
+      fsec().filter(t => t.color === color).forEach(t => { for (const k in t.pos) if (starts(t.pos[k].p)) moves.push([t, k]); });
+      const parents = fsec().filter(t => t.color === color && t.root.length < f.root.length && t.root.every((x, i) => f.root[i] === x) && !isSkipped(t, f.root));
+      const from = [...new Set(moves.map(x => x[0]))];
+      say("");
+      openDialog("New section: " + side + ": " + query,
+        "<p>Start it at <b>" + esc(f.label) + "</b> and move <b>" + moves.length + "</b> prepared " + (moves.length === 1 ? "position" : "positions") + (from.length ? " out of " + from.map(t => "“" + esc(t.name) + "”").join(", ") : "") + ".</p>" +
+        (parents.length ? '<p class="why">' + parents.map(t => "“" + esc(t.name) + "”").join(", ") + " will leave this line out, so it isn't counted there as a gap.</p>" : "") +
+        (f.others ? '<p class="why">' + f.others + " other move " + (f.others === 1 ? "order reaches" : "orders reach") + " a position with this name; " + (f.others === 1 ? "it stays" : "they stay") + " where " + (f.others === 1 ? "it is" : "they are") + ".</p>" : "") +
+        '<div class="row"><button class="btn primary" id="spOk">Make section</button></div>',
+        (close) => {
+          $("spOk").onclick = () => {
+            const name = side + ": " + query.replace(/^./, c => c.toUpperCase());
+            const anchor = from[0] || parents[0];
+            const ns = { id: "s" + uid8(), name, color, root: f.root.slice(), skip: [], pos: {}, order: anchor ? (anchor.order || 0) + 0.5 : fsec().length, folder: R.folder, src: [] };
+            for (const [t, k] of moves) { if (!ns.pos[k]) ns.pos[k] = t.pos[k]; delete t.pos[k]; }
+            from.forEach(t => (t.src || []).forEach(x => { if (!ns.src.some(y => y.id === x.id)) ns.src.push(x); }));
+            parents.forEach(t => { t.skip = (t.skip || []).concat("=" + rootId); });
+            // place it right after the section it came from, and renumber this repertoire's sections in order
+            const list = fsec().slice().sort((a, b) => (a.order || 0) - (b.order || 0)), at = list.indexOf(anchor);
+            list.splice(at >= 0 ? at + 1 : list.length, 0, ns);
+            const moved = new Set();
+            list.forEach((t, i) => { if (t.order !== i) { t.order = i; moved.add(t); } });
+            R.sections.push(ns);
+            R.sections.sort((a, b) => (a.order || 0) - (b.order || 0));
+            new Set(from.concat(parents, [...moved])).forEach(t => { if (t !== ns) touch(t); });
+            touch(ns);
+            R.cur = ns.id; R.sel = null;
+            $("repSplitIn").value = "";
+            close(); render();
+            flash("Made “" + name + "” with " + moves.length + (moves.length === 1 ? " position" : " positions"));
+          };
+        });
+    }
+    // deleting a split-off section can hand its lines back to the section it came from
+    function splitParent(s) { return fsec().find(t => t !== s && t.color === s.color && (t.skip || []).includes("=" + s.root.join(" "))); }
+    function mergeBack(s, t) {
+      for (const k in s.pos) if (!t.pos[k]) t.pos[k] = s.pos[k];
+      t.skip = (t.skip || []).filter(x => x !== "=" + s.root.join(" "));
+      R.sections = R.sections.filter(x => x !== s);
+      Store.remove("rep-" + s.id);
+      touch(t);
+      R.cur = t.id; R.sel = null; render();
+    }
     // ---- repertoire builder: drafts a line from a gap using Masters games, for you to review and keep
     //   your move: the one that has scored best for your side in master games (small samples are pulled toward the
     //   position's average, so a move won in 3 of 3 games doesn't beat one that scored well in 300)
@@ -5273,15 +5415,16 @@ textarea.inp { resize: vertical; font-size: 14px; }
           if (!e) return;
           const g = new Chess(node.fen), mv = g.move(e.m, { sloppy: true });
           if (!mv) return;
-          const c = { san: mv.san, fen: g.fen(), children: [], comment: e.n || "", parent: node };
-          node.children.push(c); grow(c, false);
+          const c = { san: mv.san, fen: g.fen(), children: [], comment: e.n || "", parent: node, path: node.path.concat(mv.san) };
+          node.children.push(c);
+          if (!isSkipped(s, c.path)) grow(c, false);
         } else {
           const g = new Chess(node.fen), pop = OData.moves(node.fen).map(x => x.san);
-          const reps = g.moves().filter(m => !(atRoot && (s.skip || []).includes(m))).map(m => { const g2 = new Chess(node.fen); g2.move(m); return { san: m, fen: g2.fen() }; })
+          const reps = g.moves().filter(m => !isSkipped(s, node.path.concat(m))).map(m => { const g2 = new Chess(node.fen); g2.move(m); return { san: m, fen: g2.fen() }; })
             .filter(x => s.pos[posKey(x.fen)]).sort((a, b) => ((pop.indexOf(a.san) + 1 || 99) - (pop.indexOf(b.san) + 1 || 99)));
-          for (const x of reps) { const c = { san: x.san, fen: x.fen, children: [], comment: "", parent: node }; node.children.push(c); grow(c, false); }
+          for (const x of reps) { const c = { san: x.san, fen: x.fen, children: [], comment: "", parent: node, path: node.path.concat(x.san) }; node.children.push(c); grow(c, false); }
         }
-      })(n, true);
+      })(Object.assign(n, { path: s.root.slice() }), true);
       return root;
     }
     function repertoirePGN(list) {
@@ -5367,6 +5510,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("repZoomIn").onclick = () => { R.zoom = Math.min(1.6, R.zoom + 0.15); renderTree(); };
       $("repZoomOut").onclick = () => { R.zoom = Math.max(0.5, R.zoom - 0.15); renderTree(); };
       $("repRename").onclick = renameDialog;
+      $("repSplitBtn").onclick = () => splitOpening($("repSplitIn").value);
+      $("repSplitIn").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); splitOpening($("repSplitIn").value); } };
       $("repDelete").onclick = deleteDialog;
       $("repImport").onclick = importDialog;
       $("repLichess").onclick = lichessImportDialog;
@@ -6344,12 +6489,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
   (function () {
     const web = !Explorer.inClaude;
     document.getElementById("tabCommunity").hidden = !web;
-    document.getElementById("repShare").hidden = !web || DEMO;
+    document.getElementById("repShareSec").hidden = !web || DEMO;
     document.getElementById("stuShare").hidden = !web || DEMO;
     if (web) {
       Share.setupCommunity();
       window.addEventListener("hashchange", () => { if ((location.hash || "").startsWith("#share=")) Share.checkHash(); });
-      document.getElementById("repShare").onclick = () => {
+      document.getElementById("repShareSec").onclick = () => {
         const s = Rep.current;
         if (!s || !Object.keys(s.pos).length) { flash("This section has no moves to share yet"); return; }
         Share.openShare(Share.payloadForSection(s));
