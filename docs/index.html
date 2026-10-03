@@ -563,6 +563,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .owner-stats img { height: 18px; display: block; }
 .owner-stats .os-off { color: var(--muted); }
 
+/* ---------- where a repertoire section came from ---------- */
+.rep-src { font-size: 12.5px; margin-top: 4px; overflow-wrap: anywhere; }
+.rep-src a { color: var(--focus); }
+.opdetect { margin: 6px 0 2px 26px; }
+.opdetect .why { font-size: 12px; }
+
 </style>
 
 <div class="app">
@@ -695,7 +701,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     <div class="rep-main">
       <div class="card rep-treecard">
         <div class="card-h rep-h">
-          <div><h2 id="repTitle">Repertoire</h2><div class="meta" id="repCoverage"></div></div>
+          <div><h2 id="repTitle">Repertoire</h2><div class="meta" id="repCoverage"></div><div class="rep-src" id="repSrc" hidden></div></div>
           <div class="row rep-ctl">
             <label class="mini-l" for="repDepth">Depth</label>
             <select id="repDepth"><option value="5">to move 5</option><option value="6" selected>to move 6</option><option value="8">to move 8</option><option value="10">to move 10</option><option value="12">to move 12</option><option value="15">to move 15</option></select>
@@ -2726,14 +2732,44 @@ textarea.inp { resize: vertical; font-size: 14px; }
       if (!this.names) return null;
       const g = new Chess(startFen || START_FEN);
       let best = this.name(g.fen());
-      for (const s of sans) { if (!g.move(s, { sloppy: true })) break; const n = this.name(g.fen()); if (n) best = n; }
+      for (const s of sans) { if (!fastMove(g, s)) break; const n = this.name(g.fen()); if (n) best = n; }
       return best;
     }
   };
 
   // ---- saving: your Claude account when available, this browser otherwise
+  // Work saved in this browser lives in IndexedDB: room for hundreds of MB, and each document is written on its own.
+  // (It used to be one localStorage entry, which tops out around 5 MB and had to be rewritten whole on every change.)
+  const LocalDB = {
+    db: null,
+    open() {
+      return new Promise((resolve) => {
+        let req, done = false;
+        const finish = (db) => { if (!done) { done = true; resolve(db); } };
+        try { req = indexedDB.open("fox-docs", 1); } catch (e) { finish(null); return; }
+        setTimeout(() => finish(null), 4000);
+        req.onupgradeneeded = () => { try { req.result.createObjectStore("docs"); } catch (e) { /* exists */ } };
+        req.onerror = req.onblocked = () => finish(null);
+        req.onsuccess = () => { if (done) { try { req.result.close(); } catch (e) { /* ignore */ } return; } this.db = req.result; finish(req.result); };
+      });
+    },
+    tx(mode, fn) {
+      return new Promise((resolve, reject) => {
+        let t;
+        try { t = this.db.transaction("docs", mode); } catch (e) { reject(e); return; }
+        const out = fn(t.objectStore("docs"));
+        t.oncomplete = () => resolve(out && out.result !== undefined ? out.result : out);
+        t.onerror = t.onabort = () => reject(t.error || new Error("write failed"));
+      });
+    },
+    async all() {
+      const keys = await this.tx("readonly", st => st.getAllKeys()), vals = await this.tx("readonly", st => st.getAll());
+      return keys.map((k, i) => [k, vals[i]]);
+    },
+    put(id, data) { return this.tx("readwrite", st => data === null ? st.delete(id) : st.put(data, id)); },
+  };
   const Store = {
-    mode: "local", db: null, uid: null, ready: null, pending: {}, writing: {}, timers: {}, listeners: [],
+    mode: "local", local: "ls", db: null, uid: null, ready: null, pending: {}, writing: {}, timers: {}, listeners: [], failed: new Map(),
     init() {
       this.ready = (async () => {
         if (DEMO) { this.mode = "demo"; this.emit("ready-demo"); return this.mode; }
@@ -2746,6 +2782,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
             }
           }
         } catch (e) { /* fall back to this browser */ }
+        if (this.mode === "local") await this.openLocal();
         this.emit(this.mode === "db" ? "ready-db" : "ready-local");
         return this.mode;
       })();
@@ -2755,6 +2792,20 @@ textarea.inp { resize: vertical; font-size: 14px; }
     emit(state, detail) { this.state = state; this.listeners.forEach(fn => { try { fn(state, detail); } catch (e) { /* ignore */ } }); },
     col() { return this.db.collection("data/users/" + this.uid); },
     readLocal() { try { return JSON.parse(localStorage.getItem("pcl-docs") || "{}") || {}; } catch (e) { return {}; } },
+    async openLocal() {
+      if (!(await LocalDB.open())) { this.local = "ls"; return; }
+      this.local = "idb";
+      // move work saved the old way across once; the old copy is kept under another name until the move is confirmed
+      let raw = null;
+      try { raw = localStorage.getItem("pcl-docs"); } catch (e) { raw = null; }
+      if (raw) {
+        try {
+          const all = JSON.parse(raw) || {};
+          await LocalDB.tx("readwrite", st => { for (const id of Object.keys(all)) st.put(all[id], id); });
+          try { localStorage.removeItem("pcl-docs"); localStorage.setItem("pcl-docs-moved", raw); } catch (e) { /* the copy is optional */ }
+        } catch (e) { this.local = "ls"; }               // couldn't move it: keep using the old way rather than lose anything
+      }
+    },
     async loadAll() {
       await this.ready;
       const out = [];
@@ -2764,6 +2815,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
           const snap = await this.col().get();
           snap.docs.forEach(d => { if (d.exists) out.push(Object.assign({}, d.data(), { _id: d.id })); });
         } catch (e) { this.emit("load-error", e && e.code); }
+      } else if (this.local === "idb") {
+        try { (await LocalDB.all()).forEach(([id, d]) => { if (d) out.push(Object.assign({}, d, { _id: id })); }); }
+        catch (e) { this.emit("load-error", "local"); }
       } else {
         const all = this.readLocal();
         Object.keys(all).forEach(id => out.push(Object.assign({}, all[id], { _id: id })));
@@ -2801,11 +2855,21 @@ textarea.inp { resize: vertical; font-size: 14px; }
             }
           } else {
             try {
-              const all = this.readLocal();
-              if (data === null) delete all[id]; else all[id] = data;
-              localStorage.setItem("pcl-docs", JSON.stringify(all));
-              this.emit("saved");
-            } catch (e) { this.emit("error", "local"); }
+              if (this.local === "idb") await LocalDB.put(id, data);
+              else {
+                const all = this.readLocal();
+                if (data === null) delete all[id]; else all[id] = data;
+                localStorage.setItem("pcl-docs", JSON.stringify(all));
+              }
+              this.failed.delete(id);
+              // a later small save mustn't hide an earlier one that failed
+              if (this.failed.size) this.emit([...this.failed.values()].includes("full") ? "full" : "error");
+              else this.emit("saved");
+            } catch (e) {
+              const full = e && (e.name === "QuotaExceededError" || e.code === 22 || /quota/i.test(e.message || ""));
+              this.failed.set(id, full ? "full" : "error");
+              this.emit(full ? "full" : "error", "local");
+            }
           }
         }
       } finally { this.writing[id] = false; }
@@ -2819,7 +2883,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       "ready-db": "Saving to your Claude account", "ready-local": "Saving in this browser only",
       "ready-demo": "Example: changes aren't saved", demo: "Example: changes aren't saved",
       dirty: "Unsaved changes…", saving: "Saving…", saved: local ? "Saved in this browser" : "Saved to your account",
-      full: "Storage is full. Delete an old study to save more.", error: "Couldn't save the last change. It will retry on your next edit.",
+      full: "Not saved: this browser's storage is full. Use Backup now, then delete something old.", error: "Couldn't save the last change. It will retry on your next edit.",
       "load-error": "Couldn't load your saved work. Reload the page to try again."
     };
     saveDot.textContent = msgs[state] || "";
@@ -2831,6 +2895,24 @@ textarea.inp { resize: vertical; font-size: 14px; }
   });
 
   // ---- PGN with side lines and comments
+  // chess.js resolves a written move ("Nbd7") by writing out every legal move and comparing, which is slow on big files.
+  // This finds the piece that can make the move and lets chess.js check only that; anything unusual uses the normal path.
+  const SAN_RE = /^([NBRQK])?([a-h])?([1-8])?x?([a-h][1-8])(?:=?([NBRQnbrq]))?$/;
+  function fastMove(g, san) {
+    const s = san.replace(/[+#?!]+$/, "");
+    const m = SAN_RE.exec(s);
+    if (!m) return g.move(san, { sloppy: true });
+    const piece = (m[1] || "P").toLowerCase(), to = m[4], promo = m[5] ? m[5].toLowerCase() : undefined, turn = g.turn();
+    if (piece === "p" && !promo && (to[1] === "8" || to[1] === "1")) return g.move(san, { sloppy: true });
+    const files = m[2] ? [m[2]] : piece === "p" ? [to[0]] : "abcdefgh".split(""), ranks = m[3] ? [m[3]] : "12345678".split("");
+    for (const f of files) for (const r of ranks) {
+      const sq = f + r, pc = g.get(sq);
+      if (!pc || pc.type !== piece || pc.color !== turn || sq === to) continue;
+      const mv = g.move({ from: sq, to, promotion: promo });
+      if (mv) return mv;
+    }
+    return g.move(san, { sloppy: true });
+  }
   function parsePGN(text) {
     const headers = {};
     let body = String(text || "").replace(/\r/g, "").replace(/ /g, " ");
@@ -2848,7 +2930,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       else if (m[4]) toks.push({ t: ")" });
       else if (m[8]) toks.push({ t: "m", v: m[8] });
     }
-    let cur = root, bad = 0, moves = 0;
+    let cur = root, bad = 0, moves = 0, board = null, boardAt = null;
     const stack = [];
     for (const tk of toks) {
       if (tk.t === "c") { if (tk.v) cur.comment = (cur.comment ? cur.comment + " " : "") + tk.v; }
@@ -2857,12 +2939,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
       else if (tk.t === "m") {
         let san = tk.v.replace(/^\d+\.+/, "").replace(/[!?]+$/, "");
         if (!san || /^\d+\.*$/.test(san)) continue;
-        const g = new Chess(cur.fen);
-        const mv = g.move(san, { sloppy: true });
+        if (boardAt !== cur) { board = new Chess(cur.fen); boardAt = cur; }   // reuse the board while following one line
+        const g = board, mv = fastMove(g, san);
         if (!mv) { bad++; continue; }
         let child = cur.children.find(c => c.san === mv.san);
         if (!child) { child = { id: "n" + (++idn), san: mv.san, fen: g.fen(), children: [], comment: "", parent: cur, from: mv.from, to: mv.to }; cur.children.push(child); }
-        cur = child; moves++;
+        cur = child; boardAt = child; moves++;
       }
     }
     return { headers, startFen, root, moves, bad };
@@ -3341,7 +3423,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function normalize(fen, p) {
       const g = new Chess(fen), moves = [];
       for (const m of p.moves || []) {
-        let mv = m.san ? g.move(m.san, { sloppy: true }) : null;
+        let mv = m.san ? fastMove(g, m.san) : null;
         if (!mv) mv = uciMove(g, m.uci);
         if (!mv) continue;
         g.undo();
@@ -3603,7 +3685,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
         for (const [k, pe] of o.a) { const e = unpack(pe); if (now - e.t < maxAge(k)) X.cache.set(k, e); }
       } catch (e) { X.cache.clear(); }
     }
-    function saveCacheSoon() { clearTimeout(X.saveT); X.saveT = setTimeout(saveCache, 2000); }
+    // save every couple of seconds while numbers stream in (not only after a pause), and when the page is closed
+    function saveCacheSoon() { if (!X.saveT) X.saveT = setTimeout(() => { X.saveT = 0; saveCache(); }, 2000); }
+    try {
+      addEventListener("pagehide", () => { try { saveCache(); } catch (e) { /* ignore */ } });
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { try { saveCache(); } catch (e) { /* ignore */ } } });
+    } catch (e) { /* no window events here */ }
     function saveCache() {
       if (IDB.state === "ready") { idbFlush(); return; }
       if (IDB.state === "opening") { saveCacheSoon(); return; }
@@ -3919,7 +4006,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       return f;
     }
     function sec() { const l = fsec(); return l.find(s => s.id === R.cur) || l[0]; }
-    function docOf(s) { return { kind: "rep", id: s.id, name: s.name, color: s.color, root: s.root, skip: s.skip || [], pos: s.pos, order: s.order || 0, folder: s.folder || MAIN, updated: Date.now() }; }
+    function docOf(s) { return { kind: "rep", id: s.id, name: s.name, color: s.color, root: s.root, skip: s.skip || [], pos: s.pos, order: s.order || 0, folder: s.folder || MAIN, src: s.src || [], updated: Date.now() }; }
     function touch(s) {
       s.ver = (s.ver || 0) + 1; R.cache.delete(s.id);
       s.saved = true;
@@ -3931,7 +4018,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function init(docs) {
       const reps = docs.filter(d => d.kind === "rep"), fd = docs.find(d => d.kind === "repfolders");
       R.folders = fd && Array.isArray(fd.folders) && fd.folders.length ? fd.folders.map(f => ({ id: String(f.id), name: String(f.name || "Repertoire") })) : [{ id: MAIN, name: "My repertoire" }];
-      if (reps.length) R.sections = reps.map(d => ({ id: d.id, name: d.name, color: d.color, root: d.root || [], skip: d.skip || [], pos: d.pos || {}, order: d.order || 0, folder: d.folder || MAIN, saved: true }));
+      if (reps.length) R.sections = reps.map(d => ({ id: d.id, name: d.name, color: d.color, root: d.root || [], skip: d.skip || [], pos: d.pos || {}, order: d.order || 0, folder: d.folder || MAIN, src: Array.isArray(d.src) ? d.src.filter(x => x && /^[A-Za-z0-9]{8}$/.test(x.id)).map(x => ({ id: x.id, name: String(x.name || x.id) })) : [], saved: true }));
       else R.sections = standardSections(MAIN);
       R.sections.forEach(x => { if (!R.folders.some(f => f.id === x.folder)) R.folders.push({ id: x.folder, name: x.folder === MAIN ? "My repertoire" : "Repertoire" }); });
       R.folder = fd && R.folders.some(f => f.id === fd.cur) ? fd.cur : R.folders[0].id;
@@ -3942,6 +4029,25 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
 
     // ---- build the visible tree for a section
+    // playing a move with the rules library is slow, and the map is redrawn many times while numbers load,
+    // so each (position, move) result is worked out once and remembered
+    const STEP = new Map(), OVER = new Map();
+    function step(fen, san) {
+      const k = fen + "|" + san;
+      let r = STEP.get(k);
+      if (r === undefined) {
+        const g = new Chess(fen), mv = fastMove(g, san);
+        r = mv ? { fen: g.fen(), mv: { from: mv.from, to: mv.to, san: mv.san } } : null;
+        if (STEP.size > 300000) STEP.clear();
+        STEP.set(k, r);
+      }
+      return r;
+    }
+    function overAt(fen) {
+      let r = OVER.get(fen);
+      if (r === undefined) { r = new Chess(fen).game_over(); if (OVER.size > 200000) OVER.clear(); OVER.set(fen, r); }
+      return r;
+    }
     function build(s) {
       const fetch = s.id === R.cur;                 // only the open section asks the live database for missing positions
       const ck = s.id + "|" + (s.ver || 0) + "|" + R.depth + "|" + R.minShare + "|" + (OData.book ? 1 : 0) + "|" + Explorer.stamp() + "|" + (fetch ? 1 : 0);
@@ -3950,16 +4056,22 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const maxPly = R.depth * 2;
       if (fetch) { Explorer.clear("rep"); Explorer.get(START_FEN, { owner: "rep", prio: 2 }); }   // the start position sets the par score
       let pending = 0, failed = 0;
-      const idx = new Map();                       // path -> opponent replies you have prepared
-      for (const k in s.pos) {
-        const e = s.pos[k];
-        const toks = e.p ? e.p.split(" ") : [];
-        for (let i = 0; i < toks.length; i++) {
-          const pre = toks.slice(0, i).join(" ");
-          if (!idx.has(pre)) idx.set(pre, new Set());
-          idx.get(pre).add(toks[i]);
+      // path -> opponent replies you have prepared; worked out once per change to the section, not on every redraw
+      if (!s._idx || s._idxVer !== (s.ver || 0) || s._idxN !== Object.keys(s.pos).length) {
+        const ix = new Map();
+        for (const k in s.pos) {
+          const e = s.pos[k];
+          const toks = e.p ? e.p.split(" ") : [];
+          let pre = "";
+          for (let i = 0; i < toks.length; i++) {
+            if (!ix.has(pre)) ix.set(pre, new Set());
+            ix.get(pre).add(toks[i]);
+            pre = i ? pre + " " + toks[i] : toks[i];
+          }
         }
+        s._idx = ix; s._idxVer = s.ver || 0; s._idxN = Object.keys(s.pos).length;
       }
+      const idx = s._idx;
       const rootFen = fenAfter(s.root);
       const nodes = [], gaps = [], leaves = [];
       const mk = (path, fen, parent, san, kind, reach, share, n, mv) => {
@@ -3971,19 +4083,18 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const onPath = new Set();
       (function expand(node) {
         const fen = node.fen, turn = fen.split(" ")[1], key = posKey(fen);
-        const g = new Chess(fen);
-        if (g.game_over()) { node.end = true; leaves.push(node); return; }
+        if (overAt(fen)) { node.end = true; leaves.push(node); return; }
         if (onPath.has(key)) { leaves.push(node); return; }
         if (turn === s.color) {
           const e = s.pos[key];
           if (node.path.length >= maxPly && !e) { node.cut = true; leaves.push(node); return; }
           if (e && e.m) {
-            const g2 = new Chess(fen), mv = g2.move(e.m, { sloppy: true });
+            const sp = step(fen, e.m), mv = sp && sp.mv;
             if (mv) {
               const pk = fetch ? Explorer.get(fen, { owner: "rep", prio: node.reach * 0.5 }) : Explorer.peek(fen), stats = pk && pk.moves ? pk.moves : [];
               const total = pk && pk.total ? pk.total : 0, st = stats.find(x => x.san === mv.san);
               onPath.add(key);
-              expand(mk(node.path.concat(mv.san), g2.fen(), node, mv.san, "mine", node.reach, total && st ? st.n / total : null, st ? st.n : 0, mv));
+              expand(mk(node.path.concat(mv.san), sp.fen, node, mv.san, "mine", node.reach, total && st ? st.n / total : null, st ? st.n : 0, mv));
               onPath.delete(key);
               return;
             }
@@ -4005,10 +4116,10 @@ textarea.inp { resize: vertical; font-size: 14px; }
         if (!list.length) { node.noData = true; leaves.push(node); return; }
         onPath.add(key);
         for (const st of list) {
-          const g2 = new Chess(fen), mv = g2.move(st.san, { sloppy: true });
+          const sp = step(fen, st.san), mv = sp && sp.mv;
           if (!mv) continue;
           const share = total ? st.n / total : 0;
-          expand(mk(node.path.concat(mv.san), g2.fen(), node, mv.san, "opp", node.reach * share, total ? share : null, st.n, mv));
+          expand(mk(node.path.concat(mv.san), sp.fen, node, mv.san, "opp", node.reach * share, total ? share : null, st.n, mv));
         }
         onPath.delete(key);
       })(root);
@@ -4077,10 +4188,21 @@ textarea.inp { resize: vertical; font-size: 14px; }
       el.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { R.cur = b.dataset.sec; R.sel = null; render(); });
       $("repAddSec").onclick = addSectionDialog;
     }
+    // the Lichess studies this section was imported from, as links
+    function renderSources(s) {
+      const el = $("repSrc"), list = s.src || [];
+      el.hidden = !list.length;
+      if (!list.length) { el.innerHTML = ""; return; }
+      const open = el.dataset.open === s.id, shown = open ? list : list.slice(0, 3);
+      el.innerHTML = '<span class="mini-l">From Lichess:</span> ' + shown.map(x => '<a href="https://lichess.org/study/' + esc(x.id) + '" target="_blank" rel="noopener">' + esc(x.name) + " ↗</a>").join(", ") +
+        (list.length > 3 ? ' <button class="linkbtn" id="repSrcMore">' + (open ? "show fewer" : "and " + (list.length - 3) + " more") + "</button>" : "");
+      if ($("repSrcMore")) $("repSrcMore").onclick = () => { el.dataset.open = open ? "" : s.id; renderSources(s); };
+    }
     function renderTree() {
       const s = sec(), b = build(s);
       const wrap = $("repTree");
       $("repTitle").textContent = s.name;
+      renderSources(s);
       $("repCoverage").innerHTML = (b.pending ? "Loading " + b.pending + " more " + (b.pending === 1 ? "position" : "positions") + "… so far " : "") + "<b>" + Math.round(b.coverage * 100) + "%</b> of " + esc(Explorer.short()) + " games stay in your preparation to move " + R.depth + " · " + b.prepared + (b.prepared === 1 ? " position" : " positions") + " prepared";
       if (Explorer.mode() === "builtin" && !OData.book && !OData.failed) { wrap.innerHTML = '<p class="rep-empty">Loading opening statistics…</p>'; return; }
       // layout
@@ -4212,8 +4334,14 @@ textarea.inp { resize: vertical; font-size: 14px; }
         : '<p class="why">' + (data.builtin && OData.failed ? "Opening statistics couldn't be loaded." : (Explorer.mode() === "builtin" ? "This position isn't in the built-in book." : "No games in the " + esc(Explorer.short()) + " database reach this position.")) + "</p>";
       el.querySelectorAll(".mrow").forEach(bt => bt.onclick = () => playFromPanel(bt.dataset.san));
     }
+    // while numbers stream in, redraw at most a few times a second (the last update is always drawn)
+    let lastRefresh = 0, refreshT = 0;
     function refreshData() {
       if (!R.loaded || !wired) return;
+      const wait = 450 - (Date.now() - lastRefresh);
+      clearTimeout(refreshT);
+      if (wait > 0) { refreshT = setTimeout(refreshData, wait); return; }
+      lastRefresh = Date.now();
       renderSections(); renderTree(); renderGaps(); renderPanelMoves(); renderInsights();
     }
     function paintEngine(fen) {
@@ -4449,19 +4577,49 @@ textarea.inp { resize: vertical; font-size: 14px; }
     const NAME_W_FIRST = /alapin|smith-?morra|morra gambit|grand prix|rossolimo|moscow variation|closed sicilian|\badvance\b|\bexchange\b|fantasy variation|panov|wing gambit|bb5\+? sicilian|anti-sicilian|anti sicilian/;
     const NAME_B = /sicilian|najdorf|dragon|sveshnikov|taimanov|scheveningen|kalashnikov|french|winawer|caro|pirc|modern defen|alekhine|scandinavian|philidor|petrov|petroff|berlin|marshall|schliemann|breyer|zaitsev|open spanish|two knights defen|king'?s indian defen|grunfeld|grünfeld|gruenfeld|nimzo|queen'?s indian|bogo|benoni|benko|volga|dutch|leningrad|stonewall defen|semi-slav|slav|queen'?s gambit declined|\bqgd\b|queen'?s gambit accepted|\bqga\b|tarrasch defen|chigorin defen|budapest|owen|hippopotamus|ragozin|cambridge springs|tartakower|lasker defen|meran|accelerated dragon|pelikan|lowenthal|kan variation|hedgehog|symmetrical english|reversed sicilian|king'?s indian/;
     const NAME_W = /ruy lopez|spanish|italian|giuoco|scotch|vienna game|king'?s gambit|evans gambit|ponziani|london system|\blondon\b|catalan|english opening|\benglish\b|r[eé]ti|trompowsky|jobava|colle|torre attack|veresov|queen'?s gambit|bird'?s opening|larsen|four knights|bishop'?s opening|danish gambit|halloween/;
-    function guessColour(p, chapter, study) {
+    // how to tell which side a chapter prepares: "auto" weighs every clue; the others use one clue only
+    const DETECT = [["auto", "Automatic (uses all the clues)"], ["orient", "Board orientation on Lichess"], ["name", "Chapter and study names"], ["lines", "Which side has the side lines"]];
+    function guessColour(p, chapter, study, method) {
       const o = (p.headers.Orientation || "").toLowerCase();
       let wB = 0, bB = 0;
       treeNodes(p.root).forEach(n => { if (n.children.length > 1) { if (n.fen.split(" ")[1] === "w") wB++; else bB++; } });
       const t = (study + " | " + chapter + " | " + (p.headers.Event || "")).toLowerCase();
-      if (/\b(as|for|with|playing) black\b|\bblack (rep|repertoire|openings?)\b|\(black\)|^black\b|\bblack:/.test(t)) return { c: "b", why: "the name says Black", sure: true };
-      if (/\b(as|for|with|playing) white\b|\bwhite (rep|repertoire|openings?)\b|\(white\)|^white\b|\bwhite:/.test(t)) return { c: "w", why: "the name says White", sure: true };
+      const explicit = () => {
+        if (/\b(as|for|with|playing) black\b|\bblack (rep|repertoire|openings?)\b|\(black\)|^black\b|\bblack:/.test(t)) return { c: "b", why: "the name says Black", sure: true };
+        if (/\b(as|for|with|playing) white\b|\bwhite (rep|repertoire|openings?)\b|\(white\)|^white\b|\bwhite:/.test(t)) return { c: "w", why: "the name says White", sure: true };
+        return null;
+      };
+      const openingName = () => {
+        if (NAME_W_FIRST.test(t)) return { c: "w", why: "the opening name is usually a White choice", sure: false };
+        if (NAME_B.test(t)) return { c: "b", why: "the opening name is usually a Black choice", sure: false };
+        if (NAME_W.test(t)) return { c: "w", why: "the opening name is usually a White choice", sure: false };
+        return null;
+      };
+      const strongLines = () => {
+        if (bB >= 2 && bB >= 3 * wB) return { c: "w", why: "Black has the side lines, White has one move each time", sure: wB === 0 };
+        if (wB >= 2 && wB >= 3 * bB) return { c: "b", why: "White has the side lines, Black has one move each time", sure: bB === 0 };
+        return null;
+      };
+      if (method === "orient") {
+        if (o === "black") return { c: "b", why: "the board is turned to Black's side on Lichess", sure: true };
+        if (o === "white") return { c: "w", why: "the board is turned to White's side on Lichess", sure: true };
+        return { c: "w", why: "this chapter has no saved board orientation", sure: false };
+      }
+      if (method === "name") return explicit() || openingName() || { c: "w", why: "the name doesn't say which side", sure: false };
+      if (method === "lines") {
+        const s1 = strongLines();
+        if (s1) return s1;
+        if (bB > wB) return { c: "w", why: "Black has more side lines (" + bB + " to " + wB + ")", sure: false };
+        if (wB > bB) return { c: "b", why: "White has more side lines (" + wB + " to " + bB + ")", sure: false };
+        return { c: "w", why: wB ? "both sides have the same number of side lines" : "there are no side lines to go by", sure: false };
+      }
+      const e = explicit();
+      if (e) return e;
       if (o === "black") return { c: "b", why: "the board is turned to Black's side on Lichess", sure: true };
-      if (bB >= 2 && bB >= 3 * wB) return { c: "w", why: "Black has the side lines, White has one move each time", sure: wB === 0 };
-      if (wB >= 2 && wB >= 3 * bB) return { c: "b", why: "White has the side lines, Black has one move each time", sure: bB === 0 };
-      if (NAME_W_FIRST.test(t)) return { c: "w", why: "the opening name is usually a White choice", sure: false };
-      if (NAME_B.test(t)) return { c: "b", why: "the opening name is usually a Black choice", sure: false };
-      if (NAME_W.test(t)) return { c: "w", why: "the opening name is usually a White choice", sure: false };
+      const sl = strongLines();
+      if (sl) return sl;
+      const on = openingName();
+      if (on) return on;
       if (wB >= 1 && bB === 0) return { c: "b", why: "White has a side line while Black always has one move", sure: false };
       if (bB >= 1 && wB === 0) return { c: "w", why: "Black has a side line while White always has one move", sure: false };
       if (o === "white") return { c: "w", why: "the board is turned to White's side (Lichess's default, so check it)", sure: false };
@@ -4486,14 +4644,25 @@ textarea.inp { resize: vertical; font-size: 14px; }
       }
       return best;
     }
+    // how deep your existing preparation goes after a move: an index of every line prefix, built once per section and import
+    let depthIdx = new WeakMap();
     function existingDepth(s, path, mv) {
-      const pre = path.concat(mv).join(" ");
-      let d = 0;
-      for (const k in s.pos) { const p2 = s.pos[k].p || ""; if (p2 === pre || p2.startsWith(pre + " ")) d = Math.max(d, p2.split(" ").length + 1 - path.length); }
-      return d;
+      let idx = depthIdx.get(s.pos);
+      if (!idx) {
+        idx = new Map();
+        for (const k in s.pos) {
+          const toks = (s.pos[k].p || "").split(" ").filter(Boolean), len = toks.length + 1;
+          let pre = "";
+          for (let i = 0; i < toks.length; i++) { pre = i ? pre + " " + toks[i] : toks[i]; if ((idx.get(pre) || 0) < len) idx.set(pre, len); }
+        }
+        depthIdx.set(s.pos, idx);
+      }
+      const L = idx.get(path.concat(mv).join(" "));
+      return L ? L - path.length : 0;
     }
     // chapters: [{p, colour, study, name}]; sideOf(ch) gives the side to use for that chapter, or "skip"
     function collectCandidates(chapters, sideOf, fixed, pool, folder) {
+      depthIdx = new WeakMap();                     // your repertoire may have changed since the last import
       const made = {}, cands = new Map();          // "sectionId|key" -> {s, key, path, fen, opts: Map(move -> {m, depth, sources:Set, note})}
       for (const ch of chapters) {
         const colour = sideOf(ch);
@@ -4509,6 +4678,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
               let o = c.opts.get(main.san);
               if (!o) { o = { m: main.san, depth: 0, sources: new Set(), note: "", path: path }; c.opts.set(main.san, o); }
               o.depth = Math.max(o.depth, 1 + subDepth(main)); o.sources.add(src);
+              if (ch.sid) (o.sids || (o.sids = new Map())).set(ch.sid, ch.study);
               const note = (main.comment || "").replace(/\[%[^\]]*\]/g, "").trim().slice(0, 280);
               if (note && !o.note) o.note = note;
             }
@@ -4541,19 +4711,33 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const decided = new Map();                     // "sectionId|key" -> chosen move
       for (const [id, c] of col.cands) decided.set(id, choice.get(id) || pickDefault(c, policy || "deeper"));
       // a line that runs through a move you didn't keep is dropped, so only one version of each line survives
+      // nothing can be dropped when no position had two different moves to choose from
+      const losers = [...col.cands.values()].some(c => c.opts.size > 1);
       const runsThroughLoser = (c) => {
-        const g = new Chess();
+        if (!losers) return false;
+        let fen = START_FEN;
         for (let i = 0; i < c.path.length; i++) {
-          const k = c.s.id + "|" + posKey(g.fen()), d = decided.get(k);
-          if (g.turn() === c.s.color && d && d !== c.path[i]) return true;
-          if (!g.move(c.path[i], { sloppy: true })) return false;
+          const d = decided.get(c.s.id + "|" + posKey(fen));
+          if (fen.split(" ")[1] === c.s.color && d && d !== c.path[i]) return true;
+          const sp = step(fen, c.path[i]);
+          if (!sp) return false;
+          fen = sp.fen;
         }
         return false;
       };
+      const addSrc = (sec, sid, name) => {
+        sec.src = sec.src || [];
+        if (sec.src.some(x => x.id === sid)) return false;
+        sec.src.push({ id: sid, name: name || sid });
+        return true;
+      };
       for (const [id, c] of col.cands) {
         const m = decided.get(id), o = c.opts.get(m);
-        if (!o || o.existing && c.s.pos[c.key] && c.s.pos[c.key].m === m) continue;
-        if (runsThroughLoser(c)) { st.pruned++; continue; }
+        if (!o) continue;
+        const same = o.existing && c.s.pos[c.key] && c.s.pos[c.key].m === m;
+        if (!same && runsThroughLoser(c)) { st.pruned++; continue; }
+        if (o.sids) for (const [sid, nm] of o.sids) if (addSrc(c.s, sid, nm) && !c.s.isNew) st.touched.add(c.s);
+        if (same) continue;
         if (c.s.isNew) { delete c.s.isNew; R.sections.push(c.s); }
         const old = c.s.pos[c.key];
         if (!old) { c.s.pos[c.key] = { m, p: c.path.join(" "), n: o.note || "" }; st.added++; }
@@ -4567,7 +4751,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     //  1 pick studies → 2 options (sides, where, merge?) → 3 check colours (only for "both sides") → 4 settle disagreements (only if merging)
     function newWizard() {
       return { studies: null, picked: new Set(), urls: "", q: "", folder: R.folder, chapters: null, fetchedFor: "", skipped: 0, failed: [],
-        opts: { sides: "mixed", target: "", merge: true }, cfq: "", cfOnly: false, choice: new Map(), pool: null, poolFor: "", newF: null };
+        opts: { sides: "mixed", target: "", merge: true, detect: "auto" }, cfq: "", cfOnly: false, choice: new Map(), pool: null, poolFor: "", newF: null };
     }
     function wizPool(W) {
       if (W.poolFor === W.folder && W.pool) return W.pool;
@@ -4662,8 +4846,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
                   if (p.startFen !== START_FEN || !p.root.children.length) { skipped++; continue; }
                   const name = p.headers.ChapterName || (p.headers.Event || "").replace(/^.*?:\s*/, "") || "Chapter";
                   const study = p.headers.StudyName || nm;
-                  const g = guessColour(p, name, study);
-                  chapters.push({ p, name, study, colour: g.c, guess: g, first: lineText(mainline(p.root).slice(0, 6).map(n => n.san)) });
+                  const g = guessColour(p, name, study, W.opts.detect);
+                  chapters.push({ p, name, study, sid: ids[i], colour: g.c, guess: g, first: lineText(mainline(p.root).slice(0, 6).map(n => n.san)) });
                 }
               } catch (e) { failed.push(nm + " (" + (e.message || "error") + ")"); }
               if (i % 5 === 4) await sleep(150);       // be gentle with Lichess
@@ -4688,7 +4872,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
         '<div class="field"><label for="opTo">Put the moves into</label><select id="opTo"><option value="">The matching White and Black sections (automatic)</option>' +
         pool.map(x => '<option value="' + esc(x.id) + '"' + (W.opts.target === x.id ? " selected" : "") + ">One section: " + esc(x.name) + " (" + (x.color === "w" ? "White" : "Black") + ")</option>").join("") + "</select></div>" +
         '<fieldset class="opset" id="opSides"><legend>Which side are these chapters for?</legend>' +
-        radio("opSide", "mixed", W.opts.sides, "Both: sort each chapter into White or Black", "You'll see my guess for each chapter (" + w + " look like White, " + b + " like Black) and can fix any.") +
+        radio("opSide", "mixed", W.opts.sides, "Both: sort each chapter into White or Black", '<span id="opGuessN">You\'ll see my guess for each chapter (' + w + " look like White, " + b + " like Black) and can fix any.</span>") +
+        '<div class="field opdetect" id="opDetectF"><label for="opDetect">How should I tell which side a chapter is for?</label><select id="opDetect">' + DETECT.map(([v, l]) => '<option value="' + v + '"' + (W.opts.detect === v ? " selected" : "") + ">" + esc(l) + "</option>").join("") + '</select><span class="why">Tip: turn each chapter\'s board to your side on Lichess first (the board flip in the study), then pick “Board orientation” and every chapter is sorted for you.</span></div>' +
         radio("opSide", "w", W.opts.sides, "All for White", "Skips the sorting step.") +
         radio("opSide", "b", W.opts.sides, "All for Black", "Skips the sorting step.") + "</fieldset>" +
         '<p class="why" id="opFixedNote" hidden></p>' +
@@ -4702,13 +4887,20 @@ textarea.inp { resize: vertical; font-size: 14px; }
             const sd = document.querySelector('input[name="opSide"]:checked'), mg = document.querySelector('input[name="opMerge"]:checked');
             if (sd) W.opts.sides = sd.value;
             if (mg) W.opts.merge = mg.value === "yes";
+            if ($("opDetect").value !== W.opts.detect) {
+              W.opts.detect = $("opDetect").value;
+              W.chapters.forEach(c => { c.guess = guessColour(c.p, c.name, c.study, W.opts.detect); if (!c.manual) c.colour = c.guess.c; });
+              const nw = W.chapters.filter(c => c.colour === "w").length, unsure = W.chapters.filter(c => !c.guess.sure).length;
+              $("opGuessN").textContent = "You'll see my guess for each chapter (" + nw + " look like White, " + (W.chapters.length - nw) + " like Black" + (unsure ? "; " + unsure + " to check" : "") + ") and can fix any.";
+            }
+            $("opDetectF").hidden = W.opts.sides !== "mixed" || !!wizFixed(W);
             const fixed = wizFixed(W);
             $("opSides").disabled = !!fixed;
             $("opFixedNote").hidden = !fixed;
             if (fixed) $("opFixedNote").textContent = "Everything goes into “" + fixed.name + "” as " + (fixed.color === "w" ? "White" : "Black") + " moves, so there's nothing to sort.";
             $("opOk").textContent = wizNeedsColours(W) ? "Next: check sides" : W.opts.merge ? "Next: merge" : "Import";
           };
-          $("opTo").onchange = sync;
+          $("opTo").onchange = sync; $("opDetect").onchange = sync;
           document.querySelectorAll('input[name="opSide"], input[name="opMerge"]').forEach(r => r.onchange = sync);
           sync();
           $("opBack").onclick = () => { sync(); close(); pickStep(W); };
@@ -4735,10 +4927,10 @@ textarea.inp { resize: vertical; font-size: 14px; }
             vis = chapters.filter(c => (!only || !c.guess.sure) && (!q || (c.study + " " + c.name + " " + c.first).toLowerCase().includes(q)));
             $("cfList").innerHTML = '<p class="why">' + vis.length + " of " + chapters.length + " chapters shown · " + chapters.filter(c => c.colour === "w").length + " White · " + chapters.filter(c => c.colour === "b").length + " Black · " + chapters.filter(c => c.colour === "skip").length + " skipped</p>" +
               vis.map(c => { const i = chapters.indexOf(c); return '<div class="cfrow"><div class="cfn"><b>' + esc(c.name) + '</b><span class="why">' + esc(c.study) + " · " + esc(c.first) + '</span><span class="cfwhy">' + (c.guess.sure ? "" : '<span class="chk">check</span> ') + "Guess: " + (c.guess.c === "w" ? "White" : "Black") + ", because " + esc(c.guess.why) + '.</span></div><select data-i="' + i + '" aria-label="Side for ' + esc(c.name) + '"><option value="w"' + (c.colour === "w" ? " selected" : "") + '>White</option><option value="b"' + (c.colour === "b" ? " selected" : "") + '>Black</option><option value="skip"' + (c.colour === "skip" ? " selected" : "") + ">Skip</option></select></div>"; }).join("");
-            $("cfList").querySelectorAll("select").forEach(sl => sl.onchange = () => { chapters[+sl.dataset.i].colour = sl.value; });
+            $("cfList").querySelectorAll("select").forEach(sl => sl.onchange = () => { const c = chapters[+sl.dataset.i]; c.colour = sl.value; c.manual = true; });
           };
           $("cfSearch").oninput = paint; $("cfUnsure").onchange = paint;
-          document.querySelectorAll("[data-all]").forEach(b => b.onclick = () => { vis.forEach(c => c.colour = b.dataset.all); paint(); });
+          document.querySelectorAll("[data-all]").forEach(b => b.onclick = () => { vis.forEach(c => { c.colour = b.dataset.all; c.manual = true; }); paint(); });
           paint();
           $("cfBack").onclick = () => { close(); optionsStep(W); };
           $("cfOk").onclick = () => {
