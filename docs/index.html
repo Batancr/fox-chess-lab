@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="Fox Chess Lab: chess analysis with Stockfish, an opening explorer, a visual repertoire map and studies."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%A6%8A%3C/text%3E%3C/svg%3E"><style>:root{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Fox Chess Lab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap">
 <style>
 /* Layout: board column (eval bar + board + review graph) beside a side rail of engine, moves and loading tools; stacks on phones. */
 :root {
@@ -32,8 +32,10 @@
   --mistake: #D9731C;
   --blunder: #C8382E;
   --font-display: var(--font-body);
-  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* one font everywhere; moves and numbers use Inter with even-width digits so columns line up */
+  --font-mono: var(--font-body);
+  --font-code: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --radius: 10px;
 }
 :root[data-board="wood"] {
@@ -55,7 +57,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; font-variant-numeric: tabular-nums; }
 .app { max-width: 1200px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 28px; }
 button, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -163,7 +165,7 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 24px; letter
 .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
 .field label { font-size: 13px; color: var(--muted); }
 select, textarea { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 10px; width: 100%; }
-textarea { min-height: 84px; resize: vertical; font: 12.5px/1.45 var(--font-mono); }
+textarea { min-height: 84px; resize: vertical; font: 12.5px/1.45 var(--font-code); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; }
 .msg { font-size: 13px; margin: 8px 0 0; min-height: 1.2em; }
 .msg.err { color: var(--blunder); } .msg.ok { color: var(--good); }
@@ -400,7 +402,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 .tokbox .why { margin: 6px 0 0; font-size: 12.5px; }
 .tokbox .why a { color: var(--focus); }
 .tokrow { display: flex; gap: 6px; margin-top: 4px; }
-.tokrow .inp { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 13px; padding: 6px 9px; }
+.tokrow .inp { flex: 1; min-width: 0; font-family: var(--font-code); font-size: 13px; padding: 6px 9px; }
 .dstat { margin: 0; font-size: 12.5px; color: var(--muted); }
 .dstat::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--good); margin-right: 6px; vertical-align: 0; }
 .dstat[data-kind="load"]::before { background: var(--inacc); animation: pulse 1s ease-in-out infinite alternate; }
@@ -505,7 +507,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 /* ---------- sharing + community ---------- */
 .sh-pub { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
 .sh-pub .why { font-size: 13px; }
-#shLink { font: 12px/1.4 var(--font-mono); }
+#shLink { font: 12px/1.4 var(--font-code); }
 .comm-head { margin-bottom: 16px; }
 .comm-head > .why { margin: 0 0 10px; }
 .comm-ctl { align-items: center; }
@@ -600,8 +602,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
     <a class="demo-link" id="demoLink" href="?demo#repertoire" hidden>See an example</a>
   </header>
 
-  <div class="demo-bar" id="demoBar" hidden><span><b>You're looking at an example</b> repertoire and studies, built from well-known opening theory. Try anything: nothing here is saved, and your own work isn't touched.</span><a class="btn sm primary" id="demoExit" href="./">Start my own</a></div>
-  <div class="welcome" id="repWelcome" hidden><span><b>New here?</b> See how the repertoire map, gap finder and studies work with a ready-made example before you build your own.</span><a class="btn sm" href="?demo#repertoire">See the example</a></div>
+  <div class="demo-bar" id="demoBar" hidden><span><b>This is an example</b> repertoire and studies. Try anything: nothing is saved, and your own work is untouched.</span><a class="btn sm primary" id="demoExit" href="./">Start my own</a></div>
+  <div class="welcome" id="repWelcome" hidden><span><b>New here?</b> Try a ready-made example before building your own.</span><a class="btn sm" href="?demo#repertoire">See the example</a></div>
   <section id="tab-analysis">
   <main class="layout">
     <section class="board-col" aria-label="Board">
@@ -642,9 +644,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
           <div class="now" id="graphNow" hidden></div>
           <div class="hover" id="graphHover" hidden></div>
           <div class="tip" id="graphTip" hidden></div>
-          <div class="graph-empty" id="graphEmpty">Click Review game to chart who was winning after every move and find the mistakes.</div>
+          <div class="graph-empty" id="graphEmpty">Press Review game to chart the game and find the mistakes.</div>
         </div>
-        <p class="graph-note" id="graphNote">White's share of the winning chances is the light area. Click the chart to jump to a move.</p>
+        <p class="graph-note" id="graphNote">Light area = White's winning chances. Click the chart to jump to a move.</p>
         <div class="summary" id="summary" hidden></div>
       </div>
     </section>
@@ -658,7 +660,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         <div class="meta" id="engineMeta" style="margin-bottom:10px">Loading Stockfish 18 (7 MB)…</div>
         <p class="feedback" id="feedback" hidden></p>
         <div class="lines" id="lines"></div>
-        <p class="hint">+1.0 means White is ahead by about a pawn, −1.0 means Black is. #3 means mate in 3. Click a line to play its first move.</p>
+        <p class="hint">+1.0 = White about a pawn up, −1.0 = Black. #3 = mate in 3. Click a line to play it.</p>
       </div>
 
       <div class="card ex-card" id="exCard">
@@ -681,7 +683,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
 
       <div class="card">
         <div class="card-h"><h2>Load a game</h2></div>
-        <button class="dropzone" id="dropzone" type="button"><b>Set up from a screenshot</b><span>Choose an image, drop it here, or paste it with Ctrl/Cmd+V. It's read on your device, not uploaded.</span></button>
+        <button class="dropzone" id="dropzone" type="button"><b>Set up from a screenshot</b><span>Choose, drop or paste (Ctrl/Cmd+V) a screenshot. It never leaves your device.</span></button>
         <input type="file" id="shotFile" accept="image/*" hidden>
         <div class="field">
           <label for="sampleSel">Famous games</label>
@@ -726,7 +728,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         </div>
         <div class="dbar" id="repDbar"></div>
         <div class="legend">
-          <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Their reply you've prepared for</span><span><i class="lg gap"></i>Gap: popular reply with no answer yet</span><span><i class="lg fweak"></i>Weak point</span><span><i class="lg fstrong"></i>Strong point</span><span class="why">Branch thickness = how often you'll meet the line</span>
+          <span><i class="lg mine"></i>Your move</span><span><i class="lg opp"></i>Prepared reply</span><span><i class="lg gap"></i>Gap: common reply not prepared</span><span><i class="lg fweak"></i>Weak point</span><span><i class="lg fstrong"></i>Strong point</span><span class="why">Thicker = more common</span>
         </div>
         <div class="rep-tree" id="repTree"></div>
         <div class="row rep-foot"><button class="btn primary" id="repLichess">Import from Lichess</button><button class="btn" id="repImport">Paste a PGN</button><button class="btn" id="repExport">Export PGN</button><button class="btn" id="repAsStudy" title="Turn this section into a study chapter, with all its lines and notes">Open as study</button><button class="btn" id="repShare" hidden>Share section</button><button class="btn" id="repRename">Rename section</button><button class="btn" id="repDelete">Delete section</button></div>
@@ -759,12 +761,12 @@ textarea.inp { resize: vertical; font-size: 14px; }
     <div id="stuLib">
       <div class="card comm-head">
         <div class="card-h"><h2>Your studies</h2><div class="row"><button class="btn sm" id="stuNewCalc">+ Calculation exercise</button><button class="btn sm primary" id="stuNew">+ New study</button></div></div>
-        <p class="why">Opening lines with side lines and comments, and calculation exercises. Open one to work on it.</p>
+        <p class="why">Your opening lines and calculation exercises. Open one to work on it.</p>
         <div class="row comm-ctl"><input id="stuSearch" class="inp" type="search" placeholder="Search your studies and chapters" autocomplete="off"></div>
       </div>
       <div class="card stu-empty" id="stuLibEmpty" hidden>
         <h2 class="big-h">No studies yet</h2>
-        <p>Keep your opening lines with side lines and comments, or train calculation: set up a position from a screenshot, work out the line without the engine, then check it.</p>
+        <p>Save opening lines with notes, or train calculation: set up a position, solve it without the engine, then check.</p>
         <div class="row"><button class="btn primary" id="stuStart1">Create a study</button><button class="btn" id="stuStart2">New calculation exercise</button></div>
         <p class="why stu-demo" id="stuDemo" hidden>Not sure where to start? <a href="?demo#studies">Look at the example studies</a>, including two calculation exercises from famous games.</p>
       </div>
@@ -830,7 +832,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
   <section id="tab-community" hidden>
     <div class="card comm-head">
       <div class="card-h"><h2>Community</h2><button class="btn sm primary" id="commPublish">Publish yours</button></div>
-      <p class="why">Studies and repertoires shared by players. Open one to look through it, and save your own copy to study or change. New posts appear automatically; anything inappropriate is removed.</p>
+      <p class="why">Studies and repertoires shared by players. Open one and save a copy to make it yours. Inappropriate posts are removed.</p>
       <div class="row comm-ctl"><input id="commSearch" class="inp" type="search" placeholder="Search by opening, name or author" autocomplete="off">
         <div class="seg" role="group" aria-label="Show"><button data-ck="all" aria-pressed="true">All</button><button data-ck="study" aria-pressed="false">Studies</button><button data-ck="rep" aria-pressed="false">Repertoires</button></div></div>
     </div>
@@ -2164,7 +2166,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     } else sum.hidden = true;
     document.getElementById("graphNote").textContent = S.saved
       ? "This chart shows the loaded game. Click it to go back to the game at that move."
-      : "White's share of the winning chances is the light area. Click the chart to jump to a move.";
+      : "Light area = White's winning chances. Click the chart to jump to a move.";
   }
   (function graphInteraction() {
     const g = document.getElementById("graph");
@@ -2247,7 +2249,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     const headers = g.header();
     while (g.undo()) {}
     loadGame(g.fen(), hist, headers, 0);
-    msg("Loaded " + hist.length + " half-moves. Click Review game to find the mistakes.", "ok");
+    msg("Loaded " + hist.length + " half-moves. Press Review game to find the mistakes.", "ok");
   };
   document.getElementById("newBtn").onclick = () => { loadGame(START_FEN, [], {}, 0); msg("New board. Make moves for both sides.", "ok"); };
 
@@ -3246,7 +3248,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
         chapters: LINES.map((l, i) => ({ id: "dl" + i, type: "line", name: l.name, fen: START_FEN, orient: "w", pgn: l.pgn, prompt: "", eval: false, arrows: false, attempts: [] })) });
       out.push({ kind: "study", id: "demo-calc", name: "Example: calculation", created: now - 1, updated: now - 1,
         chapters: [
-          { id: "dc0", type: "calc", name: "Morphy, Paris 1858", fen: fenAt("opera", 24), orient: "w", pgn: "", prompt: "White to play. Morphy found a forcing win here. Calculate the whole line before you move, then play it out and press Check my line.", eval: false, arrows: false, attempts: [] },
+          { id: "dc0", type: "calc", name: "Morphy, Paris 1858", fen: fenAt("opera", 24), orient: "w", pgn: "", prompt: "White to play. Morphy found a forcing win here. Calculate the whole line before you move, then play it out and press Grade my solution.", eval: false, arrows: false, attempts: [] },
           { id: "dc1", type: "calc", name: "Anderssen, Berlin 1852", fen: fenAt("evergreen", 38), orient: "w", pgn: "", prompt: "White to play. Black's queen has just taken on f3. Find the combination that ends the game.", eval: false, arrows: false, attempts: [] },
         ] });
       return out;
@@ -3412,7 +3414,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const k = "m|" + fen.split(" ").slice(0, 4).join(" ");
       const hit = X.cache.get(k);
       if (hit) return Promise.resolve(hit);
-      if (!canMasters()) return Promise.reject(new Error(IN_CLAUDE ? "Add your Lichess token to use Masters numbers." : "Sign in with Lichess to use Masters numbers."));
+      if (!canMasters()) return Promise.reject(new Error(IN_CLAUDE ? "Add your Lichess token to use Masters games." : "Sign in with Lichess to use Masters games."));
       return new Promise((resolve, reject) => {
         let j = X.jobs.get(k);
         if (!j) { j = { key: k, fen, prio: 1e7, owners: new Set(["builder"]), src: "masters", ratings: [], speeds: [], tries: 0, running: false, notBefore: 0, idb: IDB.state === "off" ? "done" : "check" }; X.jobs.set(k, j); }
@@ -3675,9 +3677,9 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function webStatus() {
       const src = X.set.source, S2 = X.snap, who = X.auth ? "Signed in" + (X.auth.user ? " as " + X.auth.user : "") + ". " : "";
       if (X.fatal) return { kind: "err", text: X.fatal.text + " Showing the built-in book for now.", retry: true };
-      if (src === "lichess" && !X.auth) return { kind: "warn", text: (X.authMsg ? X.authMsg + " " : "") + "Sign in with Lichess to use the Lichess games database. Showing the built-in book until then." };
-      if (src === "masters" && !X.auth && S2.state === "loading") return { kind: "load", text: "Loading the stored Masters numbers…" };
-      if (src === "masters" && !X.auth && S2.state !== "ready") return { kind: "warn", text: (X.authMsg ? X.authMsg + " " : "") + "Sign in with Lichess for Masters numbers. Showing the built-in book until then." };
+      if (src === "lichess" && !X.auth) return { kind: "warn", text: (X.authMsg ? X.authMsg + " " : "") + "Sign in with Lichess for Lichess games. Using the built-in book for now." };
+      if (src === "masters" && !X.auth && S2.state === "loading") return { kind: "load", text: "Loading the stored Masters games…" };
+      if (src === "masters" && !X.auth && S2.state !== "ready") return { kind: "warn", text: (X.authMsg ? X.authMsg + " " : "") + "Sign in with Lichess for Masters games. Using the built-in book for now." };
       if (Date.now() < X.pausedUntil && X.note) return { kind: "load", text: X.note };
       const pend = X.jobs.size + X.snap.loading.size;
       if (pend) return { kind: "load", text: who + "Loading " + pend + (pend === 1 ? " position" : " positions") + "…" };
@@ -3691,7 +3693,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function signInHtml() {
       if (X.auth) return "";
       return '<div class="tokbox"><div class="tokrow"><button class="btn sm primary" data-act="signin">Sign in with Lichess</button></div>' +
-        '<p class="why">You approve it on lichess.org. This site reads the opening explorer, your username and your studies (so you can import them); it can\'t change anything, post or play for you. Your sign-in stays in this browser, and signing out revokes it.</p></div>';
+        '<p class="why">Read-only: the site can see the explorer, your username and your studies, but can\'t change, post or play anything. Signing out removes access.</p></div>';
     }
     function renderAcct() {
       const el = document.getElementById("acct");
@@ -3852,7 +3854,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     const BARS = ["repDbar", "exBar"];
     function status() {
       const src = X.set.source;
-      if (src === "builtin") return { kind: "ok", text: "Built-in book: how often moves are played, from a fixed snapshot. No results or games." };
+      if (src === "builtin") return { kind: "ok", text: "Built-in book: how often moves are played (no results or games)." };
       if (!IN_CLAUDE) return webStatus();
       if (!X.token) return { kind: "warn", text: "Paste your Lichess token to switch on live " + (src === "masters" ? "Masters" : "Lichess") + " data. Showing the built-in book until then." };
       if (X.mcpState === "loading") return { kind: "load", text: "Connecting to Lichess Explorer…" };
@@ -3983,7 +3985,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     document.getElementById("exToggle").setAttribute("aria-pressed", String(on));
     document.getElementById("exToggleText").textContent = on ? "On" : "Off";
     document.getElementById("exBar").hidden = !on;
-    if (!on) { body.innerHTML = '<p class="why">The explorer is off. Switch it on to see which moves are played here and how those games went.</p>'; body.dataset.fen = ""; return; }
+    if (!on) { body.innerHTML = '<p class="why">Explorer off. Turn it on to see popular moves and results.</p>'; body.dataset.fen = ""; return; }
     const fen = cur().fen, data = Explorer.peek(fen);
     if ((!data || data.snap) && Explorer.mode() === "live") {
       clearTimeout(exTimer);
@@ -4233,7 +4235,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
           '<span class="rsec-n">' + (b.pending ? (s.id === R.cur ? "Loading live numbers…" : "Open to load live numbers") : "<b>" + Math.round(b.coverage * 100) + "%</b> covered · " + b.gaps.length + (b.gaps.length === 1 ? " gap" : " gaps")) + "</span>" +
           '<span class="rsec-g">' + (big ? "Biggest gap: " + esc(gapLabel(big)) : "No gaps at this depth") + "</span></button>";
       }
-      h += '<button class="rsec add" id="repAddSec"><span class="rsec-h">+ New section</span><span class="rsec-g">For example, White with 1.d4, or a sideline you study</span></button>';
+      h += '<button class="rsec add" id="repAddSec"><span class="rsec-h">+ New section</span><span class="rsec-g">e.g. White with 1.d4, or a sideline</span></button>';
       el.innerHTML = h;
       el.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { R.cur = b.dataset.sec; R.sel = null; render(); });
       $("repAddSec").onclick = addSectionDialog;
@@ -4314,7 +4316,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function renderGaps() {
       const s = sec(), b = build(s), el = $("repGaps");
-      if (!b.gaps.length) { el.innerHTML = '<p class="why">No gaps in the lines shown. Increase the depth or lower the minimum share to look further.</p>'; return; }
+      if (!b.gaps.length) { el.innerHTML = '<p class="why">No gaps here. Raise the depth or lower “Show replies” to look further.</p>'; return; }
       el.innerHTML = b.gaps.slice(0, 8).map(g => {
         const nm = OData.nameAlong(g.path);
         return '<div class="gaprow"><button class="gapitem" data-path="' + esc(g.path.join(" ")) + '"><span class="gp">' + pct(g.reach) + '</span><span class="gl2"><b>' + esc(gapLabel(g)) + "</b>" + (nm ? '<span class="why">' + esc(nm.name) + "</span>" : "") + '</span></button><button class="btn sm gapbuild" data-build="' + esc(g.path.join(" ")) + '" title="Draft a line from here with Masters games">Build</button></div>';
@@ -4337,8 +4339,8 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const g = new Chess(fen);
       let status;
       if (g.game_over()) status = "The game is over in this position.";
-      else if (mine) status = e ? "Your move here: <b>" + esc(e.m) + "</b>. Play a different move on the board to change it." : "<b>No move prepared yet.</b> Play your move on the board, or pick one below.";
-      else status = "It's your opponent's move. Their most common replies are below; play any move on the board to prepare against it.";
+      else if (mine) status = e ? "Your move here: <b>" + esc(e.m) + "</b>. Play a different move on the board to change it." : "<b>No move prepared.</b> Play one on the board or pick one below.";
+      else status = "Opponent to move. Common replies are below; play one to prepare for it.";
       $("repStatus").innerHTML = status;
       renderPanelMoves();
       const note = $("repNote");
@@ -4578,10 +4580,10 @@ textarea.inp { resize: vertical; font-size: 14px; }
       h += group("Only one way to equalize", "Just one reply keeps the balance for your opponent; the rest score well for you.", ins.only, {
         cls: "good", val: it => "1/" + (it.others + 1),
         text: it => "Only <b>" + esc(it.hold.san) + "</b> holds (you score " + pc(it.hold.sc) + " against it); " + it.others + " other replies score well for you." + few(it.games) });
-      h += group("Ideas to look at", "Another move of yours has scored clearly better here. Worth checking with the engine before switching.", ins.ideas, {
+      h += group("Ideas to look at", "Another move scores clearly better here. Check it with the engine before switching.", ins.ideas, {
         cls: "idea", val: it => "+" + Math.round((it.alt.sc - it.mine.sc) * 100),
         text: it => "You play <b>" + esc(it.mine.san) + "</b> (" + pc(it.mine.sc) + " in " + it.mine.n.toLocaleString() + " games); <b>" + esc(it.alt.san) + "</b> scores " + pc(it.alt.sc) + " in " + it.alt.n.toLocaleString() + "." + few(it.alt.n) });
-      if (!ins.weak.length && !ins.strong.length && !ins.only.length && !ins.ideas.length) h += '<p class="why">Nothing stands out yet. Prepare more positions, raise the depth, or check back when the numbers have loaded.</p>';
+      if (!ins.weak.length && !ins.strong.length && !ins.only.length && !ins.ideas.length) h += '<p class="why">Nothing stands out yet. Add more lines or raise the depth.</p>';
       el.innerHTML = h;
       el.querySelectorAll(".insitem").forEach(bt => bt.onclick = () => { R.sel = bt.dataset.path ? bt.dataset.path.split(" ") : []; R.scrollToSel = true; render(); });
     }
@@ -4839,7 +4841,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     function pickStep(W) {
       const user = Explorer.user;
       openDialog("Import studies from Lichess",
-        '<p class="why">Step 1: pick the studies with your repertoire. You can import one or many at once.</p>' +
+        '<p class="why">Step 1: pick the studies to import (one or several).</p>' +
         '<input class="inp lisearch" id="liSearch" type="search" placeholder="Search your studies by name" autocomplete="off">' +
         '<div class="lilist" id="liList"><p class="why">Loading your studies…</p></div>' +
         '<div class="field"><label for="liUrl">Or paste links to other studies (one per line)</label><textarea id="liUrl" class="inp" rows="2" spellcheck="false" placeholder="https://lichess.org/study/abcd1234"></textarea></div>' +
@@ -4924,13 +4926,13 @@ textarea.inp { resize: vertical; font-size: 14px; }
         pool.map(x => '<option value="' + esc(x.id) + '"' + (W.opts.target === x.id ? " selected" : "") + ">One section: " + esc(x.name) + " (" + (x.color === "w" ? "White" : "Black") + ")</option>").join("") + "</select></div>" +
         '<fieldset class="opset" id="opSides"><legend>Which side are these chapters for?</legend>' +
         radio("opSide", "mixed", W.opts.sides, "Both: sort each chapter into White or Black", '<span id="opGuessN">You\'ll see my guess for each chapter (' + w + " look like White, " + b + " like Black) and can fix any.</span>") +
-        '<div class="field opdetect" id="opDetectF"><label for="opDetect">How should I tell which side a chapter is for?</label><select id="opDetect">' + DETECT.map(([v, l]) => '<option value="' + v + '"' + (W.opts.detect === v ? " selected" : "") + ">" + esc(l) + "</option>").join("") + '</select><span class="why">Tip: turn each chapter\'s board to your side on Lichess first (the board flip in the study), then pick “Board orientation” and every chapter is sorted for you.</span></div>' +
+        '<div class="field opdetect" id="opDetectF"><label for="opDetect">How should I tell which side a chapter is for?</label><select id="opDetect">' + DETECT.map(([v, l]) => '<option value="' + v + '"' + (W.opts.detect === v ? " selected" : "") + ">" + esc(l) + "</option>").join("") + '</select><span class="why">Tip: flip each chapter\'s board to your side on Lichess, then choose “Board orientation” to sort every chapter automatically.</span></div>' +
         radio("opSide", "w", W.opts.sides, "All for White", "Skips the sorting step.") +
         radio("opSide", "b", W.opts.sides, "All for Black", "Skips the sorting step.") + "</fieldset>" +
         '<p class="why" id="opFixedNote" hidden></p>' +
         '<fieldset class="opset"><legend>Do your chapters overlap?</legend>' +
-        radio("opMerge", "yes", W.opts.merge ? "yes" : "no", "Yes, or not sure: merge them and let me choose", "Where two chapters (or your existing repertoire) pick different moves in the same position, you choose which line to keep. The longest line is picked for you to start with.") +
-        radio("opMerge", "no", W.opts.merge ? "yes" : "no", "No: just add everything as it is", "Quicker, with no extra step. If two chapters ever pick different moves in the same position, your existing move or the first chapter read is kept.") + "</fieldset>" +
+        radio("opMerge", "yes", W.opts.merge ? "yes" : "no", "Yes, or not sure: merge them and let me choose", "Where chapters disagree, you choose which move to keep (the longest line is preselected).") +
+        radio("opMerge", "no", W.opts.merge ? "yes" : "no", "No: just add everything as it is", "Faster, no extra step. If chapters disagree, your existing move (or the first chapter) is kept.") + "</fieldset>" +
         '<div class="row"><button class="btn" id="opBack">Back</button><button class="btn primary" id="opOk"></button></div>',
         (close) => {
           const sync = () => {
@@ -4964,7 +4966,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const chapters = W.chapters;
       const unsure = chapters.filter(c => !c.guess.sure).length;
       openDialog("Which side is each chapter for?",
-        '<p class="why">' + stepTag(W, 3) + ": I've guessed whether each chapter is your White or Black preparation" + (unsure ? "; <b>" + unsure + "</b> are marked <span class=\"chk\">check</span> because the signs were weak" : "") + ". Change any that are wrong, or skip ones that aren't repertoire.</p>" +
+        '<p class="why">' + stepTag(W, 3) + ": Check my guess for each chapter" + (unsure ? " (<b>" + unsure + "</b> marked <span class=\"chk\">check</span> are uncertain)" : "") + ". Fix any that are wrong, or skip chapters that aren't repertoire.</p>" +
         '<div class="row lictl"><input class="inp" id="cfSearch" type="search" placeholder="Search chapters or studies" autocomplete="off"><label class="checks"><input type="checkbox" id="cfUnsure"> Only ones to check</label></div>' +
         '<div class="row lictl"><span class="mini-l">Set all shown to</span><button class="btn sm" data-all="w">White</button><button class="btn sm" data-all="b">Black</button><button class="btn sm" data-all="skip">Skip</button></div>' +
         '<div class="cflist" id="cfList"></div>' +
@@ -5007,7 +5009,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const choice = W.choice;
       col.conflicts.forEach(c => { const id = c.s.id + "|" + c.key; if (!choice.has(id)) choice.set(id, pickDefault(c, "deeper")); });
       openDialog("Merge your preparation",
-        '<p class="why">' + stepTag(W, wizSteps(W)) + ": " + col.dupes + (col.dupes === 1 ? " position appears" : " positions appear") + " in more than one place and will be merged. In <b>" + col.conflicts.length + "</b> " + (col.conflicts.length === 1 ? "position" : "positions") + " your chapters (or your existing repertoire) choose different moves. I've picked the move with the longest preparation after it; change any you like. Lines after the moves you don't keep are left out, so only one version of each line remains.</p>" +
+        '<p class="why">' + stepTag(W, wizSteps(W)) + ": " + col.dupes + (col.dupes === 1 ? " position" : " positions") + " repeat and will be merged. In <b>" + col.conflicts.length + "</b>, your sources disagree; the move with the longest preparation is preselected. Lines after moves you don't keep are dropped.</p>" +
         '<div class="row lictl"><span class="mini-l">For all</span><button class="btn sm" id="mgDeep">Longest line</button><button class="btn sm" id="mgMine">Keep my existing moves</button></div>' +
         '<div class="cflist" id="mgList"></div><div class="row"><button class="btn" id="mgBack">Back</button><button class="btn primary" id="mgOk">Import</button></div>',
         (close) => {
@@ -5103,7 +5105,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       B.root = { id: "b0", san: null, fen: startFen, children: [], comment: "", parent: null, path: startPath.slice(), kind: "start" };
       B.node = B.root;
       $("bldMsg").textContent = ""; $("bldMsg").className = "msg";
-      $("bldIntro").innerHTML = "Drafting " + (s.color === "w" ? "White" : "Black") + " moves from <b>" + esc(lineText(startPath) || "the starting position") + "</b> using Masters games: for each of your moves, the one that has scored best for you; for the opponent, every reply played in at least 10% of games. It goes about " + BUILD.mine + " of your moves deep. Use it as a direction to research, then keep what you like.";
+      $("bldIntro").innerHTML = "Draft from <b>" + esc(lineText(startPath) || "the starting position") + "</b> using Masters games: your best-scoring move each time, and every reply played in 10%+ of games, about " + BUILD.mine + " moves deep. Use it as a starting point.";
       $("bldBg").hidden = false;
       bGo(B.root);
       if (!Explorer.canMasters()) {
@@ -5493,7 +5495,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       }
       if (type === "calc") {
         const side = ch.fen.split(" ")[1] === "w" ? "White" : "Black";
-        ch.prompt = side + " to move. Work out the strongest line in your head first, then play it out on the board and check it.";
+        ch.prompt = side + " to move. Calculate the best line first, then play it out and check it.";
         ch.mode = "deep"; ch.mv = 1;
       }
       return ch;
@@ -5675,13 +5677,13 @@ textarea.inp { resize: vertical; font-size: 14px; }
       $("stuCheck").disabled = T.checking || !line.length;
       const deep = isDeep(ch);
       document.querySelectorAll("[data-cmode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cmode === (deep ? "deep" : "puzzle"))));
-      $("stuModeHelp").textContent = deep ? "Play your full answer, including a reply to every defence that holds up (go back a move and play the alternative). Once you're clearly winning, answering one of the toughest defences is enough. You get a grade out of 100%: half for accuracy, half for covering the opponent's best defences. Finding Stockfish's whole main line is worth at least 90%."
+      $("stuModeHelp").textContent = deep ? "Play your full answer, with a reply to each strong defence (go back a move to add one). Once clearly winning, one defence is enough. Graded out of 100%: half accuracy, half coverage. Finding Stockfish's full main line earns at least 90%."
         : "One solution: play your line and check it.";
       $("stuCheck").textContent = T.checking ? (deep ? "Grading…" : "Checking your line…") : deep ? (T.check ? "Grade again" : "Grade my solution") : branches > 1 ? "Check this line" : (T.check ? "Check again" : "Check my line");
       $("stuLineInfo").textContent = deep ? (line.length ? "Your answer has " + branches + (branches === 1 ? " line" : " lines") + "." : "No moves yet. Play your answer on the board.")
         : line.length ? (branches > 1 ? "Selected line: " : "Your line: ") + lineText(line.map(n => n.san), T.tree.fen) : "No moves yet. Play the line you calculated.";
       const tried = linesTried(ch), lk = locked(ch);
-      $("stuUnlock").innerHTML = lk ? "<b>Evaluation and arrows unlock after " + NEED_LINES + " lines</b> (" + tried + " of " + NEED_LINES + " so far). Each line you play counts, side lines too: go back a move and play something else to start one."
+      $("stuUnlock").innerHTML = lk ? "<b>Engine help unlocks after " + NEED_LINES + " lines</b> (" + tried + "/" + NEED_LINES + "). Side lines count: go back a move and try another."
         : (ch.type === "calc" ? "Evaluation and arrows are unlocked." : "");
       const r = $("stuResult");
       if (T.check && T.check.summary) {
@@ -6013,7 +6015,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     }
     function calcDialog() {
       openDialog("New calculation exercise",
-        '<p class="why">Set up the position, then solve it without the engine. You can switch the evaluation and arrows on at any time.</p>' +
+        '<p class="why">Set up the position, then solve it without the engine (engine help unlocks after 3 lines).</p>' +
         '<div class="calc-opts">' +
         '<button class="opt" id="ccShot"><b>From a screenshot</b><span>A photo of a book diagram or a phone screenshot</span></button>' +
         '<button class="opt" id="ccEdit"><b>Set it up on a board</b><span>Place the pieces yourself</span></button>' +
@@ -6188,7 +6190,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
       const long = url.length > 8000, huge = url.length > 60000;
       const signed = Explorer.state.auth && Explorer.state.auth.user;
       openDialog("Share " + (payload.k === "study" ? "this study" : "this repertoire section"),
-        '<p class="why">Anyone you send this link to can open <b>' + esc(payload.name) + "</b> on this site and save their own copy. The link holds the whole " + (payload.k === "study" ? "study" : "section") + ", including your notes and comments, so only send it to people you want to see them. Changes you make later aren't included; send a new link.</p>" +
+        '<p class="why">Anyone with this link can open and copy <b>' + esc(payload.name) + "</b>, including your notes. Later changes aren't included, so send a new link.</p>" +
         '<div class="field"><label for="shLink">Link (' + url.length.toLocaleString() + " characters)</label><textarea id=\"shLink\" class=\"inp\" rows=\"3\" readonly spellcheck=\"false\"></textarea></div>" +
         (huge ? '<p class="msg err">This one is very long, and many apps will cut it off. Use Export PGN instead, or share a smaller part.</p>' : long ? '<p class="why">It\'s a long link. It works in a browser, but some chat apps may cut it off; if that happens, use Export PGN instead.</p>' : "") +
         '<div class="row"><button class="btn primary" id="shCopy">Copy link</button></div>' +
@@ -6367,7 +6369,7 @@ textarea.inp { resize: vertical; font-size: 14px; }
     });
     document.getElementById("backupBtn").onclick = () => {
       openDialog("Backup and restore",
-        '<p class="why">Your repertoire and studies save automatically in this browser, on this device only, and nobody else can see them. A backup file lets you keep a copy, or move everything to another browser or device.</p>' +
+        '<p class="why">Your work saves automatically and privately in this browser. Download a backup to keep a copy or move it to another device.</p>' +
         '<div class="bkrow"><span><b>Download a backup</b><span class="why">Everything: repertoire sections and studies, as one file.</span></span><button class="btn primary" id="bkSave">Download</button></div>' +
         '<div class="bkrow"><span><b>Restore from a backup</b><span class="why">Adds the backup\'s sections and studies; ones with the same name in both are replaced by the backup\'s copy.</span></span><button class="btn" id="bkLoad">Choose file</button></div>' +
         '<input type="file" id="bkFile" accept=".json,application/json" hidden><p class="msg" id="bkMsg" role="status"></p>',
