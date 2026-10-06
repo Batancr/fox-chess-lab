@@ -1,0 +1,130 @@
+{
+ "version": 1,
+ "items": [
+  {
+   "title": "Calculation exercises",
+   "kind": "study",
+   "author": "Batancr",
+   "added": "2026-10-02",
+   "desc": "",
+   "tags": [],
+   "file": "community/calculation-exercises-2.json",
+   "gh": "Batancr",
+   "issue": 5
+  },
+  {
+   "title": "Canadian Open Games",
+   "kind": "study",
+   "author": "Batancr",
+   "added": "2026-10-02",
+   "desc": "Game 2",
+   "tags": [],
+   "file": "community/canadian-open-games.json",
+   "gh": "Batancr",
+   "issue": 4
+  },
+  {
+   "title": "Canadian Closed Games",
+   "kind": "study",
+   "author": "Batancr",
+   "added": "2026-10-02",
+   "desc": "Game 1",
+   "tags": [],
+   "file": "community/canadian-closed-games.json",
+   "gh": "Batancr",
+   "issue": 3
+  },
+  {
+   "title": "Calculation exercises",
+   "kind": "study",
+   "author": "Batancr",
+   "added": "2026-10-02",
+   "desc": "Calculation exercise #1: Black to move. Work out the strongest line before you touch a piece.",
+   "tags": [
+    "calculation",
+    "tactics"
+   ],
+   "file": "community/calculation-exercises.json"
+  },
+  {
+   "title": "White: 1.e4 starter repertoire",
+   "kind": "rep",
+   "color": "w",
+   "author": "Fox Chess Lab",
+   "added": "2026-10-02",
+   "desc": "Ruy Lopez against 1...e5, the English Attack against the Najdorf, the Advance Caro-Kann, and solid answers to the French and Scandinavian.",
+   "tags": [
+    "e4",
+    "Ruy Lopez",
+    "Sicilian",
+    "Caro-Kann",
+    "French"
+   ],
+   "file": "community/white-1e4-starter.json",
+   "placeholder": true
+  },
+  {
+   "title": "Black: 1...e5 with the Marshall",
+   "kind": "rep",
+   "color": "b",
+   "author": "Fox Chess Lab",
+   "added": "2026-10-02",
+   "desc": "Answer 1.e4 with 1...e5 and meet the Ruy Lopez with the Marshall Attack, plus lines against the Italian, Scotch, Vienna and King's Gambit.",
+   "tags": [
+    "e5",
+    "Marshall",
+    "Spanish",
+    "Italian",
+    "Scotch"
+   ],
+   "file": "community/black-e5-marshall.json",
+   "placeholder": true
+  },
+  {
+   "title": "Black: Queen's Gambit Declined",
+   "kind": "rep",
+   "color": "b",
+   "author": "Fox Chess Lab",
+   "added": "2026-10-02",
+   "desc": "A classical answer to 1.d4: the Tartakower QGD, with set-ups against the Exchange, the Catalan and the London.",
+   "tags": [
+    "d4",
+    "QGD",
+    "Tartakower",
+    "Catalan",
+    "London"
+   ],
+   "file": "community/black-qgd.json",
+   "placeholder": true
+  },
+  {
+   "title": "Ruy Lopez ideas",
+   "kind": "study",
+   "author": "Fox Chess Lab",
+   "added": "2026-10-02",
+   "desc": "The Closed Spanish main line with the Zaitsev, Breyer and Chigorin, and the Berlin endgame, with short explanations.",
+   "tags": [
+    "Ruy Lopez",
+    "Berlin",
+    "Spanish"
+   ],
+   "file": "community/ruy-lopez-ideas.json",
+   "placeholder": true
+  },
+  {
+   "title": "Calculation: famous combinations",
+   "kind": "study",
+   "author": "Fox Chess Lab",
+   "added": "2026-10-02",
+   "desc": "Two classic finishing combinations to calculate from the diagram: Morphy's Opera Game and Anderssen's Evergreen Game.",
+   "tags": [
+    "calculation",
+    "tactics",
+    "Morphy",
+    "Anderssen"
+   ],
+   "file": "community/famous-combinations.json",
+   "placeholder": true
+  }
+ ]
+}

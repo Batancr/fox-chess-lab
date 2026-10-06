@@ -1,0 +1,30 @@
+# Publishes Community submissions automatically. Runs when someone opens an issue whose title starts with
+# "Community submission:" (the site's Submit button makes these). The issue text is only ever read as data.
+name: Publish community submissions
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: community
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: startsWith(github.event.issue.title, 'Community submission:')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check and publish the submission
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_USER: ${{ github.event.issue.user.login }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python3 tools/auto_community.py
