@@ -1,0 +1,14 @@
+{
+  "name": "Fox Chess Lab",
+  "short_name": "Fox Chess",
+  "description": "Chess analysis, opening repertoires and opponent prep, in your browser.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF0EA",
+  "theme_color": "#46702F",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
