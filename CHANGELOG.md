@@ -5,6 +5,11 @@ The site is at https://batancr.github.io/fox-chess-lab/.
 
 ## 2026-10-11
 - Guided tour: a walk through every part of the site with example data, from **? Tour** in the header.
+- Click counts: which tabs and buttons get used, counted anonymously with GoatCounter (no cookies, no personal data).
+- Signing in with Lichess adds your username to the site's sign-in list (only the days you visit); said next to
+  every sign-in button.
+- Safety: the page now runs only its own scripts (each checked by its fingerprint), and won't run inside another
+  site's frame.
 
 ## 2026-10-09
 - FIDE players in Opponent prep: find a player by name or FIDE ID and see their over-the-board openings, likely line
