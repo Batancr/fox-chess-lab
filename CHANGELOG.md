@@ -4,6 +4,11 @@ A dated record of what was added. Dates are when each change was saved in Fox Ch
 The site is at https://batancr.github.io/fox-chess-lab/.
 
 ## 2026-10-11
+- Convert the win: positions from recent master games (no sign-in needed, or your own PGN file), including only the
+  ones where the win slipped; and type your own minimum advantage, e.g. +2.5.
+- Guess the eval: the board faces whoever is to move.
+- Opponent prep: says how many of their games reach your repertoire, and explains when their games never do, instead of
+  showing the same line twice.
 - Guided tour: a walk through every part of the site with example data, from **? Tour** in the header.
 - Click counts: which tabs and buttons get used, counted anonymously with GoatCounter (no cookies, no personal data).
 - Signing in with Lichess adds your username to the site's sign-in list (only the days you visit); said next to
