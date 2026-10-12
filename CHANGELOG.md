@@ -3,6 +3,11 @@
 A dated record of what was added. Dates are when each change was saved in Fox Chess Lab's source repository.
 The site is at https://batancr.github.io/fox-chess-lab/.
 
+## 2026-10-12
+- Studies: **+ Game analysis** imports a game from a pasted PGN or a .pgn file (one game or all of them), with the
+  option to keep only the moves played and remove comments and symbols. Clock times and engine notes are always
+  removed. The players, event and result show with the chapter. "+ Line chapter" is now "+ Chapter".
+
 ## 2026-10-11
 - Convert the win: positions from recent master games (no sign-in needed, or your own PGN file), including only the
   ones where the win slipped; and type your own minimum advantage, e.g. +2.5.

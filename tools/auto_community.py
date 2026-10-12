@@ -23,6 +23,8 @@ class Reject(Exception):
     pass
 
 
+GAME_KEYS = ("white", "black", "whiteElo", "blackElo", "event", "site", "date", "result")   # a game chapter's details
+
 def api(method, path, data=None):
     req = urllib.request.Request("https://api.github.com/repos/" + REPO + path, method=method,
                                  data=json.dumps(data).encode() if data is not None else None,
@@ -90,9 +92,11 @@ def check(p):
             pgn = str(c.get("pgn") or "")
             if len(pgn) > 60000:
                 raise Reject("one of the chapters is too long")
-            out["chapters"].append({"type": "calc" if c.get("type") == "calc" else "line", "name": clean(c.get("name"), 80) or "Chapter",
+            out["chapters"].append({"type": c.get("type") if c.get("type") in ("calc", "game") else "line", "name": clean(c.get("name"), 80) or "Chapter",
                                     "fen": fen, "orient": "b" if c.get("orient") == "b" else "w", "pgn": pgn, "prompt": clean(c.get("prompt"), 400),
-                                    **({"mode": c.get("mode")} if c.get("mode") in ("deep", "puzzle") else {})})
+                                    **({"mode": c.get("mode")} if c.get("mode") in ("deep", "puzzle") else {}),
+                                    **({"game": {k: clean(v, 100) for k, v in c["game"].items() if k in GAME_KEYS and isinstance(v, str)}}
+                                       if c.get("type") == "game" and isinstance(c.get("game"), dict) else {})})
     else:
         pgn = str(p.get("pgn") or "")
         if not pgn.strip() or len(pgn) > 250000:
