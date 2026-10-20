@@ -3,6 +3,11 @@
 A dated record of what was added. Dates are when each change was saved in Fox Chess Lab's source repository.
 The site is at https://batancr.github.io/fox-chess-lab/.
 
+## 2026-10-20
+- New font, Atkinson Hyperlegible Next, built into the page (nothing is loaded from Google any more).
+- One corner radius across cards, buttons, inputs and panels.
+- Grey placeholders while the explorer, your games, an opponent's games, your studies and Community posts load.
+
 ## 2026-10-12
 - Studies: **+ Game analysis** imports a game from a pasted PGN or a .pgn file (one game or all of them), with the
   option to keep only the moves played and remove comments and symbols. Clock times and engine notes are always
