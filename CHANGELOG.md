@@ -3,6 +3,11 @@
 A dated record of what was added. Dates are when each change was saved in Fox Chess Lab's source repository.
 The site is at https://batancr.github.io/fox-chess-lab/.
 
+## 2026-10-21
+- Install Fox Chess Lab as an app (Install app in the header, or Add to Home Screen on iPhone). It opens without a
+  connection: your saved work, the analysis board, the built-in book, and the engine once you've used it.
+  Long-press the icon for shortcuts to Repertoire, Studies, Opponent prep and Guess the eval.
+
 ## 2026-10-20
 - New font, Atkinson Hyperlegible Next, built into the page (nothing is loaded from Google any more).
 - One corner radius across cards, buttons, inputs and panels.

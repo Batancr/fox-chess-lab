@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "Fox Chess Lab",
   "short_name": "Fox Chess",
   "description": "Chess analysis, opening repertoires and opponent prep, in your browser.",
@@ -7,8 +8,16 @@
   "display": "standalone",
   "background_color": "#EEF0EA",
   "theme_color": "#46702F",
+  "categories": ["games", "education"],
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Repertoire", "url": "./#repertoire", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Studies", "url": "./#studies", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Opponent prep", "url": "./#scout", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Guess the eval", "url": "./#guess", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
   ]
 }
